@@ -3,11 +3,15 @@ baseURL = "https://www.occasionaldivergences.com/"
 theme = "hyde"
 languageCode = "en-us"
 ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown", "_files$", "_cache$"]
+copyright = "&copy; Marc and Jeff Dotson, {2019}"
+paginate = 10
+enableEmoji = true
 
 [permalinks]
-    post = "/:year/:month/:day/:slug/"
+    post = "/post/:year/:slug/"
 
 [params]
   description = "A website built through Hugo and blogdown."
+  date_format = "2006-01-02"
   layoutReverse = true
   themeColor = "theme-base-08"
