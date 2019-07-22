@@ -3,15 +3,21 @@ baseURL = "https://www.occasionaldivergences.com/"
 theme = "hyde"
 languageCode = "en-us"
 ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown", "_files$", "_cache$"]
-copyright = "&copy; Marc and Jeff Dotson, {2019}"
 paginate = 10
 enableEmoji = true
 
 [permalinks]
-    post = "/post/:year/:slug/"
+    post = "/post/:slug/"
+
+[[menu.main]]
+    name = "About"
+    weight = 1
+    url = "/about/"
 
 [params]
   description = "A website built through Hugo and blogdown."
-  date_format = "2006-01-02"
+  EnableEmoji = true
   layoutReverse = true
   themeColor = "theme-base-08"
+  MathJaxCDN = "//cdn.bootcss.com"
+  MathJaxVersion = "2.7.1"
