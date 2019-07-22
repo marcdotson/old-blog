@@ -1,4 +1,17 @@
+title = "Occasional Divergences"
+baseURL = "https://www.occasionaldivergences.com"
 theme = "hyde"
-baseURL = "http://example.org/"
 languageCode = "en-us"
-title = "My New Hugo Site"
+ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown", "_files$", "_cache$"]
+
+[permalinks]
+    post = "/:year/:month/:day/:slug/"
+
+[params]
+  description = "A website built through Hugo and blogdown."
+  layoutReverse = true
+  themeColor = "theme-base-08"
+
+[[menu.main]]
+    name = "About"
+    url = "/about/"
