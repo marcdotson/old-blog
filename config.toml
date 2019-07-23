@@ -15,7 +15,7 @@ enableEmoji = true
     url = "/about/"
 
 [params]
-  description = "A website built through Hugo and blogdown."
+  description = "Two brothers with a mostly Bayesian focus."
   themeColor = "theme-base-08"
   layoutReverse = true
   dateformat = "02 Jan 2006"
