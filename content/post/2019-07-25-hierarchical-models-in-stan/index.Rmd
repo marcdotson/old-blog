@@ -1,21 +1,17 @@
 ---
 title: Hierarchical Models in Stan
 author: Marc Dotson
-date: '2019-07-22'
-slug: hierarchical-models-in-stan
+date: '2019-07-25'
 categories:
   - R
 tags:
   - R Markdown
+slug: hierarchical-models-in-stan
 Categories:
   - Development
   - GoLang
-Description: ''
 Tags:
   - Development
   - golang
 ---
-
-
-
 

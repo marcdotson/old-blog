@@ -16,8 +16,8 @@ enableEmoji = true
 
 [params]
   description = "A website built through Hugo and blogdown."
-  EnableEmoji = true
-  layoutReverse = true
   themeColor = "theme-base-08"
+  layoutReverse = true
+  dateformat = "02 Jan 2006"
   MathJaxCDN = "//cdn.bootcss.com"
   MathJaxVersion = "2.7.1"
