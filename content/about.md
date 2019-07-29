@@ -13,6 +13,9 @@ Jeff started it. He didn't know what Bayesian inference was, but he was interest
 
 Jeff is an associate professor of marketing at the BYU Marriott School of Business. His research ... [website](https://marriottschool.byu.edu/directory/details?id=33658).
 
+- [Twitter](https://twitter.com/jdotson77)
+- [GitHub](https://github.com/jeff-dotson)
+
 ## Marc Dotson
 
 Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with a B.S. from Southern Utah University in 2008, an M.Sc. from The London School of Economics and Political Science in 2009, and a Ph.D. from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics to undergraduate and MBA students.
