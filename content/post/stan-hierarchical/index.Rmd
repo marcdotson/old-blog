@@ -1,0 +1,21 @@
+---
+title: Hierarchical models in Stan
+author: Marc Dotson
+date: '2019-08-27'
+slug: stan-hierarchical
+categories: []
+tags: []
+Categories:
+  - Development
+  - GoLang
+Description: ''
+Tags:
+  - Development
+  - golang
+---
+
+- Write as a follow-up to the introductory materials provided in Statistical Rethinking?
+- Dealing with the geometry of hierarchical models.
+- Collecting and piecing together various resources on hierarchical modeling in Stan.
+- Dealing with parameterizations.
+- Preparation/follow-up for StanCon workshop.
