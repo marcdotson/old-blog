@@ -1,11 +1,9 @@
 ---
 title: "Two brothers with a mostly Bayesian focus"
 slug: about
-date: '2019-07-22'
+date: '2019-07-30'
 type: page
 ---
-
-<img src="/marc.jpg" alt="Marc" title="Marc" width="500" />
 
 Jeff started it. He didn't know what Bayesian inference was, but he was interested in learning. Natually he shared his excitement with his little brother, Marc, who (as usual) followed in his footsteps. Now they share that interest working together at the intersection of business and data science and, occasionally, writing on this blog.
 
