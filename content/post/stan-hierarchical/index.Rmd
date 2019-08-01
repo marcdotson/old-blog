@@ -33,5 +33,5 @@ The correlations induced within a hierarchical model change the geometry suffici
 - Illustrate a hierarchical model (see Michael's hierarchical regression or expand my own tidy Bayesian workflow example into a hierarchical linear model [same thing?]).
 - Geometry of hierarchical models.
 - Parameterizations (centered vs. non-centered).
-- Diagnostics (what's the deal with NaN's?).
+- Diagnostics (what's the deal with NaN's? how do we really compute Rhat?).
 
