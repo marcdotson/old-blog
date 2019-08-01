@@ -14,8 +14,24 @@ Tags:
   - golang
 ---
 
-- Write as a follow-up to the introductory materials provided in Statistical Rethinking?
-- Dealing with the geometry of hierarchical models.
+## Setting the scene
+
+- Possible follow-up to the introductory materials provided in Statistical Rethinking?
 - Collecting and piecing together various resources on hierarchical modeling in Stan.
-- Dealing with parameterizations.
 - Preparation/follow-up for StanCon workshop.
+
+Hierarchical models account for structure in our data. If we are estimating the preferences of consumers, we know that consumers preferences are different. This heterogeneity makes the use of a standard linear model incredibly problematic, since that model assumes that preferences are shared across consumers. Just as hierarchical models account for consumer heterogeneity in models of preference, they similarly account for existing hierarchies in other applications and should be considered the default model rather than aggregate models.
+
+Stan is a probabilistic programming language that is indispensable for the estimation of modern Bayesian models. Perhaps most importantly, it provides a general purpose sampler implemented as a Hamiltonian Monte Carlo.
+
+Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for Bayesian computation. However, there are behaviors inherent to hierarchical models that make them somewhat problematic to implement in Stan. This can provide a frustrating mismatch: Providing a way into Bayesian inference only to pull it away again. The motivation for this post is to provide a gentle introduction into implementing hierarchical models in Stan.
+
+## Difficulties
+
+The correlations induced within a hierarchical model change the geometry sufficiently as to make their estimation via Hamiltonian Monte Carlo more challenging than the geometry of an aggregate model. Don't throw the baby out with the bathwater -- these same problems exist for other samplers as well, though they might not be as obvious, and HMC promises to still provide a more efficient and complete sampling of the posterior distribution as long as we know how to navigate their implementation.
+
+- Illustrate a hierarchical model (see Michael's hierarchical regression or expand my own tidy Bayesian workflow example into a hierarchical linear model [same thing?]).
+- Geometry of hierarchical models.
+- Parameterizations (centered vs. non-centered).
+- Diagnostics (what's the deal with NaN's?).
+
