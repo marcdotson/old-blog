@@ -2,15 +2,15 @@
 data {
   int<lower=0> N;     // Number of observations.
   vector[N] y;        // Vector of observations.
-  int<lower=0> C;     // Number of covariates.
-  matrix[N, C] X;     // Matrix of covariates.
+  // int<lower=0> C;     // Number of covariates.
+  // matrix[N, C] X;     // Matrix of covariates.
 }
 
 // Parameters for the hierarchical regression.
 parameters {
   real mu;            // Mean of the upper-level model.
   real<lower=0> tau;  // Variance of the upper-level model.
-  matrix[N, C] theta; // Matrix of lower-level theta coefficients.
+  vector[N] theta;    // Vector of lower-level theta coefficients.
 }
 
 // Hierarchical regression.
@@ -21,7 +21,7 @@ model {
 
   // Lower-level prior and model.
   theta ~ normal(mu, tau);
-  y ~ normal(theta * X, 1);
+  y ~ normal(theta, 1);
 }
 
 // generated quantities {
