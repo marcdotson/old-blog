@@ -26,6 +26,13 @@ Stan is a probabilistic programming language that is indispensable for the estim
 
 Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for Bayesian computation. However, there are behaviors inherent to hierarchical models that make them somewhat problematic to implement in Stan. This can provide a frustrating mismatch: Providing a way into Bayesian inference only to pull it away again. The motivation for this post is to provide a gentle introduction into implementing hierarchical models in Stan.
 
+## Benefits
+
+- Partial pooling (like shrinking, adaptively between an aggregate model and separate models, which helps avoid overfitting).
+- Estimate both individual and population parameters simultaneously.
+- Include information in the form of covariates at both individual and population levels.
+- Exploit the (frequently present) hierarchical structure in the data.
+
 ## Difficulties
 
 The correlations induced within a hierarchical model change the geometry sufficiently as to make their estimation via Hamiltonian Monte Carlo more challenging than the geometry of an aggregate model. Don't throw the baby out with the bathwater -- these same problems exist for other samplers as well, though they might not be as obvious, and HMC promises to still provide a more efficient and complete sampling of the posterior distribution as long as we know how to navigate their implementation.
