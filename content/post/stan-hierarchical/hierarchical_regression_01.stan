@@ -6,11 +6,11 @@ data {
   vector[N] y;        // Vector of observations.
 }
 
-// Parameters at both the individual and population-levels.
+// Parameters and hyperparameters.
 parameters {
+  vector[N] beta;     // Vector of individual-level coefficients.
   real mu;            // Mean of the population-level model.
   real<lower=0> tau;  // Variance of the population-level model.
-  vector[N] beta;     // Vector of individual-level coefficients.
 }
 
 // Hierarchical regression.
