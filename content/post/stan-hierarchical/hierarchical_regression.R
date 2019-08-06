@@ -6,10 +6,10 @@ library(bayesplot)
 library(tidybayes)
 
 # Set Stan options.
-rstan_options(auto_write = TRUE)
+rstan_options(auto_write = FALSE)
 options(mc.cores = parallel::detectCores())
 
-# Intercept-Only Hierarchical Regression ----------------------------------
+# 01 Simple Hierarchical Regression ---------------------------------------
 # Hierarchical regression with no covariates and known variance.
 
 # Specify data and hyperparameter values.
@@ -58,14 +58,15 @@ fit %>%
     facet_args = list(nrow = 2, labeller = label_parsed)
   )
 
-# fit %>%
-#   mcmc_trace(
-#     pars = str_c("beta[", 1:data$N, "]"),
-#     n_warmup = 500,
-#     facet_args = list(nrow = 5, labeller = label_parsed)
-#   )
+beta_sample <- sample(1:data$N, 12)
+fit %>%
+  mcmc_trace(
+    pars = str_c("beta[", beta_sample, "]"),
+    n_warmup = 500,
+    facet_args = list(nrow = 3, labeller = label_parsed)
+  )
 
-# Recover hyperparameter values.
+# Recover hyperparameter and parameter values.
 par_values <- tibble(
   n = 1:sim_values$N,
   mu = sim_values$mu,
@@ -81,15 +82,16 @@ fit %>%
   geom_vline(aes(xintercept = tau), par_values, color = "red")
 
 # fit %>%
-#   spread_draws(theta[n]) %>%
-#   ggplot(aes(x = theta, y = n)) +
+#   spread_draws(beta[n]) %>%
+#   filter(n %in% beta_sample) %>%
+#   ggplot(aes(x = beta, y = n)) +
 #   geom_halfeyeh(.width = c(.95, .95)) +
 #   facet_wrap(
 #     ~ as.factor(n),
-#     nrow = 5,
+#     nrow = 3,
 #     scales = "free"
 #   ) +
-#   geom_vline(aes(xintercept = beta), par_values, color = "red")
+#   geom_vline(aes(xintercept = beta[beta_sample]), par_values, color = "red")
 
 # Save data and model output.
 run <- list(data, fit)
