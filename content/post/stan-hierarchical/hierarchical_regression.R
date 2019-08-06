@@ -67,31 +67,38 @@ fit %>%
   )
 
 # Recover hyperparameter and parameter values.
+hyperpar_values <- tibble(
+  .variable = c("mu", "tau"),
+  values = c(sim_values$mu, sim_values$tau),
+)
+
 par_values <- tibble(
-  n = 1:sim_values$N,
-  mu = sim_values$mu,
-  tau = sim_values$tau,
-  beta = as.vector(sim_beta)
+  n = as.factor(beta_sample),
+  beta = as.vector(sim_beta[beta_sample])
 )
 
 fit %>%
   gather_draws(mu, tau) %>%
   ggplot(aes(x = .value, y = .variable)) +
-  geom_halfeyeh(.width = c(.95, .95)) +
-  geom_vline(aes(xintercept = mu), par_values, color = "red") +
-  geom_vline(aes(xintercept = tau), par_values, color = "red")
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = "free"
+  ) +
+  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
 
-# fit %>%
-#   spread_draws(beta[n]) %>%
-#   filter(n %in% beta_sample) %>%
-#   ggplot(aes(x = beta, y = n)) +
-#   geom_halfeyeh(.width = c(.95, .95)) +
-#   facet_wrap(
-#     ~ as.factor(n),
-#     nrow = 3,
-#     scales = "free"
-#   ) +
-#   geom_vline(aes(xintercept = beta[beta_sample]), par_values, color = "red")
+fit %>%
+  spread_draws(beta[n]) %>%
+  filter(n %in% beta_sample) %>%
+  ggplot(aes(x = beta, y = n)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ n,
+    nrow = 3,
+    scales = "free"
+  ) +
+  geom_vline(aes(xintercept = beta), par_values, color = "red")
 
 # Save data and model output.
 run <- list(data, fit)
