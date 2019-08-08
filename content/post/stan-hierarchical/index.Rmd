@@ -42,3 +42,8 @@ The correlations induced within a hierarchical model change the geometry suffici
 - Parameterizations (centered vs. non-centered).
 - Diagnostics (what's the deal with NaN's? how do we really compute Rhat?).
 
+## Stages
+
+- Simple hierarchical regression, where we have varying-intercepts only.
+- Multiple hierarchical regression, where we have varying-intercepts and varying-slopes.
+- General hierarchical regression, where we have multiple observations and deal with estimable variance.

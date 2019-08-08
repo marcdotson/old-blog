@@ -2,15 +2,17 @@
 
 // Index values and observations.
 data {
-  int<lower=1> N;     // Number of observations.
-  vector[N] y;        // Vector of observations.
+  int<lower = 1> N;               // Number of individuals.
+  int<lower = 1> K;               // Number of groups.
+  vector[N] y;                    // Vector of observations.
+  int<lower = 1, upper = K> g[N]; // Vector of group assignments.
 }
 
 // Parameters and hyperparameters.
 parameters {
-  vector[N] beta;     // Vector of individual-level coefficients.
-  real mu;            // Mean of the population-level model.
-  real<lower=0> tau;  // Variance of the population-level model.
+  vector[K] beta;                 // Vector of group intercepts.
+  real mu;                        // Mean of the population model.
+  real<lower=0> tau;              // Variance of the population model.
 }
 
 // Hierarchical regression.
@@ -19,7 +21,9 @@ model {
   mu ~ normal(0, 5);
   tau ~ normal(0, 5);
 
-  // Population-level model and likelihood.
+  // Population model and likelihood.
   beta ~ normal(mu, tau);
-  y ~ normal(beta, 1);
+  for (n in 1:N) {
+    y[n] ~ normal(beta[g[n]], 1);
+  }
 }
