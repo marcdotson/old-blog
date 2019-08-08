@@ -6,7 +6,9 @@ slug: stan-hierarchical
 categories: []
 tags: []
 Categories:
-  - 
+  - R
+  - Stan
+  - Tidyverse
 Description: ''
 Tags:
   - 
@@ -14,20 +16,28 @@ Tags:
 
 
 
-<p>Stan is a probabilistic programming language that is indispensable for the estimation of modern Bayesian models. Perhaps most importantly, it provides a general purpose sampler implemented as a Hamiltonian Monte Carlo. Simplify specify your model using <code>data</code>, <code>parameter</code>, and <code>model</code> (i.e., the full joint model, prior and likelihood).</p>
-<p>To illustrate, let’s consider a simple regression. We first specify the <code>data</code>, including index values:</p>
+<p>Bayesian inference provides an intuitive and self-consistent approach to statistical modeling. In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition – it’s been the <a href="https://arxiv.org/abs/1701.02434">required computation</a>. There has been a great deal of progress on this front, with <a href="https://mc-stan.org">Stan</a> arguably providing the best solution.</p>
+<p>Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by just focusing on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.</p>
+<p>The goal of this post is to provide a gentle introduction to building hierarchical models using Stan and R. We’ll start with a very brief introduction to Stan and build in complexity from there. For a general introduction to Bayesian inference and Stan, see:</p>
+<ul>
+<li>Introduction to Bayesian inference</li>
+<li>Introduction to Stan</li>
+</ul>
+<div id="simple-regression" class="section level2">
+<h2>Simple regression</h2>
+<p>Let’s start with a simple (non-hierarchical) regression. In a Stan script, which <a href="https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/">has native support in RStudio</a>, first specify the <code>data</code> block.</p>
 <pre class="stan"><code>// Index value and observations.
 data {
   int&lt;lower = 1&gt; N;       // Number of individuals.
   vector[N] y;            // Vector of observations.
 }</code></pre>
-<p>Next, we specify the <code>parameters</code> we want to estimate:</p>
+<p>Next, we specify the <code>parameters</code>, the unobserved values, we want to estimate.</p>
 <pre class="stan"><code>// Parameters.
 parameters {
   real mu;                // Mean of the regression.
   real&lt;lower=0&gt; tau;      // Variance of the regression.
 }</code></pre>
-<p>Finally, we specify the complete <code>model</code>, the prior and likelihood:</p>
+<p>Finally, we specify the complete <code>model</code>, which includes both the prior and the likelihood.</p>
 <pre class="stan"><code>// Simple regression.
 model {
   // Priors.
@@ -37,7 +47,7 @@ model {
   // Likelihood.
   y ~ normal(mu, tau);
 }</code></pre>
-<p>Since this is a fully generative model, we can also use Stan to simulate data by reorganizing these three components into <code>data</code> (now including the true values of the parameters) and <code>generated quantities</code> blocks:</p>
+<p>Since, like all Bayesian models, this model is fully generative, we can also use Stan to generate data. To do this, we reorganize these three blocks into <code>data</code> (which now includes the true values of the parameters) and <code>generated quantities</code> blocks.</p>
 <pre class="stan"><code>// Index and parameter values.
 data {
   int&lt;lower = 1&gt; N;       // Number of observations.
@@ -54,7 +64,7 @@ generated quantities {
     y[n] = normal_rng(mu, tau);
   }
 }</code></pre>
-<p>Let’s load the necessary packages, allow Stan to use as many cores as we have available, and generate data according to our simple regression.</p>
+<p>Now in an R script, let’s load the necessary packages, allow Stan to use as many cores as we have available, and generate data according to our simple regression.</p>
 <pre class="r"><code># Load packages.
 library(tidyverse)
 library(rstan)
@@ -72,50 +82,70 @@ sim_values &lt;- list(
 )
 
 # Generate data.
-sim_data &lt;- sampling(
-  object = generate_data,
+sim_data &lt;- stan(
+  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;stan-hierarchical&quot;, &quot;code&quot;, &quot;generate_data.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
   seed = 42,
   algorithm = &quot;Fixed_param&quot;
+)</code></pre>
+<p>To demonstrate that our simple regression works, we simply specify the data inputs as a list, call the model from R, and Stan does all the heavy lifting for us.</p>
+<pre class="r"><code># Extract simulated data.
+sim_y &lt;- extract(sim_data)$y
+
+# Specify data.
+data &lt;- list(
+  N = length(sim_y),                 # Number of individuals.
+  y = as.vector(sim_y)               # Vector of observations.
 )
 
-# Extract simulated data and group intercepts.
-sim_y &lt;- extract(sim_data)$y
-sim_beta &lt;- extract(sim_data)$beta</code></pre>
-<pre class="stan"><code>// Index value and observations.
-data {
-  int&lt;lower = 1&gt; N;       // Number of individuals.
-  vector[N] y;            // Vector of observations.
-}
+# Calibrate the model.
+fit &lt;- stan(
+  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;stan-hierarchical&quot;, &quot;code&quot;, &quot;regression.stan&quot;),
+  data = data,
+  iter = 4000,
+  thin = 2,
+  seed = 42
+)</code></pre>
+<p>We can check diagnostics, one of the best services provided by using Hamiltonian Monte Carlo.</p>
+<pre class="r"><code># Diagnostics.
+source(here::here(&quot;content&quot;, &quot;post&quot;, &quot;stan-hierarchical&quot;, &quot;code&quot;, &quot;stan_utility.R&quot;))
+check_all_diagnostics(fit)</code></pre>
+<pre><code>[1] &quot;n_eff / iter looks reasonable for all parameters&quot;
+[1] &quot;Rhat looks reasonable for all parameters&quot;
+[1] &quot;0 of 4000 iterations ended with a divergence (0%)&quot;
+[1] &quot;0 of 4000 iterations saturated the maximum tree depth of 10 (0%)&quot;
+[1] &quot;E-FMI indicated no pathological behavior&quot;</code></pre>
+<p>With the model performing well, we can both check the trace plots, be thorough, and plot the marginal posteriors for our parameter values to confirm that the true values used when generating data are within the 95% credible intervals.</p>
+<pre class="r"><code># Check trace plots.
+fit %&gt;%
+  mcmc_trace(
+    pars = c(&quot;mu&quot;, &quot;tau&quot;),
+    n_warmup = 500,
+    facet_args = list(nrow = 2, labeller = label_parsed)
+  )</code></pre>
+<p><img src="figures/mcmc_trace.png" /></p>
+<pre class="r"><code># Recover parameter values.
+par_values &lt;- tibble(
+  .variable = c(&quot;mu&quot;, &quot;tau&quot;),
+  values = c(sim_values$mu, sim_values$tau),
+)
 
-// Parameters.
-parameters {
-  real mu;                // Mean of the regression.
-  real&lt;lower=0&gt; tau;      // Variance of the regression.
-}
-
-// Simple regression.
-model {
-  // Priors.
-  mu ~ normal(0, 5);
-  tau ~ normal(0, 5);
-
-  // Likelihood.
-  y ~ normal(mu, tau);
-}</code></pre>
-<p>We can now simply call this model from R and Stan does all the heavy lifting: drawing from the posterior.</p>
-<pre class="r"><code>library(rstan)</code></pre>
-<pre><code>## Loading required package: StanHeaders</code></pre>
-<pre><code>## Loading required package: ggplot2</code></pre>
-<pre><code>## rstan (Version 2.19.2, GitRev: 2e1f913d3ca3)</code></pre>
-<pre><code>## For execution on a local, multicore CPU with excess RAM we recommend calling
-## options(mc.cores = parallel::detectCores()).
-## To avoid recompilation of unchanged Stan programs, we recommend calling
-## rstan_options(auto_write = TRUE)</code></pre>
-<pre class="r"><code># fit &lt;- sampling(regression)
-# print(fit)</code></pre>
+fit %&gt;%
+  gather_draws(mu, tau) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = &quot;free&quot;
+  ) +
+  geom_vline(aes(xintercept = values), par_values, color = &quot;red&quot;)</code></pre>
+<p><img src="figures/marginals.png" /></p>
+</div>
+<div id="simple-hierarchical-regression" class="section level2">
+<h2>Simple hierarchical regression</h2>
 <ul>
 <li>Possible follow-up to the introductory materials provided in Statistical Rethinking?</li>
 <li>Collecting and piecing together various resources on hierarchical modeling in Stan.</li>
@@ -123,6 +153,7 @@ model {
 </ul>
 <p>Hierarchical models account for structure in our data. If we are estimating the preferences of consumers, we know that consumers preferences are different. This heterogeneity makes the use of a standard linear model incredibly problematic, since that model assumes that preferences are shared across consumers. Just as hierarchical models account for consumer heterogeneity in models of preference, they similarly account for existing hierarchies in other applications and should be considered the default model rather than aggregate models.</p>
 <p>Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for Bayesian computation. However, there are behaviors inherent to hierarchical models that make them somewhat problematic to implement in Stan. This can provide a frustrating mismatch: Providing a way into Bayesian inference only to pull it away again. The motivation for this post is to provide a gentle introduction into implementing hierarchical models in Stan.</p>
+</div>
 <div id="benefits" class="section level2">
 <h2>Benefits</h2>
 <ul>

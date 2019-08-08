@@ -6,7 +6,6 @@ library(bayesplot)
 library(tidybayes)
 
 # Set Stan options.
-rstan_options(auto_write = FALSE)
 options(mc.cores = parallel::detectCores())
 
 # Specify data and parameter values.
@@ -18,7 +17,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "generate_data.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "code", "generate_data.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -37,7 +36,7 @@ data <- list(
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "regression.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "code", "regression.stan"),
   data = data,
   iter = 4000,
   thin = 2,
@@ -45,7 +44,7 @@ fit <- stan(
 )
 
 # Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "stan_utility.R"))
+source(here::here("content", "post", "stan-hierarchical", "code", "stan_utility.R"))
 check_all_diagnostics(fit)
 
 # Check trace plots.
@@ -55,6 +54,12 @@ fit %>%
     n_warmup = 500,
     facet_args = list(nrow = 2, labeller = label_parsed)
   )
+
+ggsave(
+  "mcmc_trace.png",
+  path = here::here("content", "post", "stan-hierarchical", "figures"),
+  width = 7, height = 3, units = "in"
+)
 
 # Recover parameter values.
 par_values <- tibble(
@@ -71,7 +76,13 @@ fit %>%
     nrow = 2,
     scales = "free"
   ) +
-  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
+  geom_vline(aes(xintercept = values), par_values, color = "red")
+
+ggsave(
+  "marginals.png",
+  path = here::here("content", "post", "stan-hierarchical", "figures"),
+  width = 7, height = 3, units = "in"
+)
 
 # 01 Simple Hierarchical Regression ---------------------------------------
 # Hierarchical regression with no covariates and known variance.
