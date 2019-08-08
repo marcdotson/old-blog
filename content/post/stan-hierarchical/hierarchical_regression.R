@@ -1,5 +1,5 @@
 # Preamble ----------------------------------------------------------------
-# Load libraries.
+# Load packages.
 library(tidyverse)
 library(rstan)
 library(bayesplot)
@@ -8,6 +8,70 @@ library(tidybayes)
 # Set Stan options.
 rstan_options(auto_write = FALSE)
 options(mc.cores = parallel::detectCores())
+
+# Specify data and parameter values.
+sim_values <- list(
+  N = 100,                            # Number of observations.
+  mu = 5,                             # Mean of the regression.
+  tau = 3                             # Variance of the regression.
+)
+
+# Generate data.
+sim_data <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "generate_data.stan"),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = "Fixed_param"
+)
+
+# Extract simulated data.
+sim_y <- extract(sim_data)$y
+
+# Specify data.
+data <- list(
+  N = length(sim_y),                 # Number of individuals.
+  y = as.vector(sim_y)               # Vector of observations.
+)
+
+# Calibrate the model.
+fit <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "regression.stan"),
+  data = data,
+  iter = 4000,
+  thin = 2,
+  seed = 42
+)
+
+# Diagnostics.
+source(here::here("content", "post", "stan-hierarchical", "stan_utility.R"))
+check_all_diagnostics(fit)
+
+# Check trace plots.
+fit %>%
+  mcmc_trace(
+    pars = c("mu", "tau"),
+    n_warmup = 500,
+    facet_args = list(nrow = 2, labeller = label_parsed)
+  )
+
+# Recover parameter values.
+par_values <- tibble(
+  .variable = c("mu", "tau"),
+  values = c(sim_values$mu, sim_values$tau),
+)
+
+fit %>%
+  gather_draws(mu, tau) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = "free"
+  ) +
+  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
 
 # 01 Simple Hierarchical Regression ---------------------------------------
 # Hierarchical regression with no covariates and known variance.
@@ -47,6 +111,8 @@ data <- list(
 fit <- stan(
   file = here::here("content", "post", "stan-hierarchical", "hierarchical_regression_01.stan"),
   data = data,
+  iter = 4000,
+  thin = 2,
   seed = 42
 )
 

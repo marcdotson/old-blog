@@ -6,26 +6,131 @@ slug: stan-hierarchical
 categories: []
 tags: []
 Categories:
-  - Development
-  - GoLang
+  - 
 Description: ''
 Tags:
-  - Development
-  - golang
+  - 
 ---
 
 
 
-<div id="setting-the-scene" class="section level2">
-<h2>Setting the scene</h2>
+<p>Stan is a probabilistic programming language that is indispensable for the estimation of modern Bayesian models. Perhaps most importantly, it provides a general purpose sampler implemented as a Hamiltonian Monte Carlo. Simplify specify your model using <code>data</code>, <code>parameter</code>, and <code>model</code> (i.e., the full joint model, prior and likelihood).</p>
+<p>To illustrate, let’s consider a simple regression. We first specify the <code>data</code>, including index values:</p>
+<pre class="stan"><code>// Index value and observations.
+data {
+  int&lt;lower = 1&gt; N;       // Number of individuals.
+  vector[N] y;            // Vector of observations.
+}</code></pre>
+<p>Next, we specify the <code>parameters</code> we want to estimate:</p>
+<pre class="stan"><code>// Parameters.
+parameters {
+  real mu;                // Mean of the regression.
+  real&lt;lower=0&gt; tau;      // Variance of the regression.
+}</code></pre>
+<p>Finally, we specify the complete <code>model</code>, the prior and likelihood:</p>
+<pre class="stan"><code>// Simple regression.
+model {
+  // Priors.
+  mu ~ normal(0, 5);
+  tau ~ normal(0, 5);
+
+  // Likelihood.
+  y ~ normal(mu, tau);
+}</code></pre>
+<p>Since this is a fully generative model, we can also use Stan to simulate data by reorganizing these three components into <code>data</code> (now including the true values of the parameters) and <code>generated quantities</code> blocks:</p>
+<pre class="stan"><code>// Index and parameter values.
+data {
+  int&lt;lower = 1&gt; N;       // Number of observations.
+  real mu;                // Mean of the regression.
+  real&lt;lower=0&gt; tau;      // Variance of the regression.
+}
+
+// Generate data according to the simple regression.
+generated quantities {
+  vector[N] y;            // Vector of observations.
+
+  // Generate data.
+  for (n in 1:N) {
+    y[n] = normal_rng(mu, tau);
+  }
+}</code></pre>
+<p>Let’s load the necessary packages, allow Stan to use as many cores as we have available, and generate data according to our simple regression.</p>
+<pre class="r"><code># Load packages.
+library(tidyverse)
+library(rstan)
+library(bayesplot)
+library(tidybayes)
+
+# Set Stan options.
+options(mc.cores = parallel::detectCores())
+
+# Specify data and parameter values.
+sim_values &lt;- list(
+  N = 100,                            # Number of observations.
+  mu = 5,                             # Mean of the regression.
+  tau = 3                             # Variance of the regression.
+)
+
+# Generate data.
+sim_data &lt;- sampling(
+  object = generate_data,
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = &quot;Fixed_param&quot;
+)
+
+# Extract simulated data and group intercepts.
+sim_y &lt;- extract(sim_data)$y
+sim_beta &lt;- extract(sim_data)$beta</code></pre>
+<pre class="stan"><code>// Index value and observations.
+data {
+  int&lt;lower = 1&gt; N;       // Number of individuals.
+  vector[N] y;            // Vector of observations.
+}
+
+// Parameters.
+parameters {
+  real mu;                // Mean of the regression.
+  real&lt;lower=0&gt; tau;      // Variance of the regression.
+}
+
+// Simple regression.
+model {
+  // Priors.
+  mu ~ normal(0, 5);
+  tau ~ normal(0, 5);
+
+  // Likelihood.
+  y ~ normal(mu, tau);
+}</code></pre>
+<p>We can now simply call this model from R and Stan does all the heavy lifting: drawing from the posterior.</p>
+<pre class="r"><code>library(rstan)</code></pre>
+<pre><code>## Loading required package: StanHeaders</code></pre>
+<pre><code>## Loading required package: ggplot2</code></pre>
+<pre><code>## rstan (Version 2.19.2, GitRev: 2e1f913d3ca3)</code></pre>
+<pre><code>## For execution on a local, multicore CPU with excess RAM we recommend calling
+## options(mc.cores = parallel::detectCores()).
+## To avoid recompilation of unchanged Stan programs, we recommend calling
+## rstan_options(auto_write = TRUE)</code></pre>
+<pre class="r"><code># fit &lt;- sampling(regression)
+# print(fit)</code></pre>
 <ul>
 <li>Possible follow-up to the introductory materials provided in Statistical Rethinking?</li>
 <li>Collecting and piecing together various resources on hierarchical modeling in Stan.</li>
 <li>Preparation/follow-up for StanCon workshop.</li>
 </ul>
 <p>Hierarchical models account for structure in our data. If we are estimating the preferences of consumers, we know that consumers preferences are different. This heterogeneity makes the use of a standard linear model incredibly problematic, since that model assumes that preferences are shared across consumers. Just as hierarchical models account for consumer heterogeneity in models of preference, they similarly account for existing hierarchies in other applications and should be considered the default model rather than aggregate models.</p>
-<p>Stan is a probabilistic programming language that is indispensable for the estimation of modern Bayesian models. Perhaps most importantly, it provides a general purpose sampler implemented as a Hamiltonian Monte Carlo.</p>
 <p>Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for Bayesian computation. However, there are behaviors inherent to hierarchical models that make them somewhat problematic to implement in Stan. This can provide a frustrating mismatch: Providing a way into Bayesian inference only to pull it away again. The motivation for this post is to provide a gentle introduction into implementing hierarchical models in Stan.</p>
+<div id="benefits" class="section level2">
+<h2>Benefits</h2>
+<ul>
+<li>Partial pooling (like shrinking, adaptively between an aggregate model and separate models, which helps avoid overfitting).</li>
+<li>Estimate both individual and population parameters simultaneously.</li>
+<li>Include information in the form of covariates at both individual and population levels.</li>
+<li>Exploit the (frequently present) hierarchical structure in the data.</li>
+</ul>
 </div>
 <div id="difficulties" class="section level2">
 <h2>Difficulties</h2>
@@ -35,5 +140,13 @@ Tags:
 <li>Geometry of hierarchical models.</li>
 <li>Parameterizations (centered vs. non-centered).</li>
 <li>Diagnostics (what’s the deal with NaN’s? how do we really compute Rhat?).</li>
+</ul>
+</div>
+<div id="stages" class="section level2">
+<h2>Stages</h2>
+<ul>
+<li>Simple hierarchical regression, where we have varying-intercepts only.</li>
+<li>Multiple hierarchical regression, where we have varying-intercepts and varying-slopes.</li>
+<li>General hierarchical regression, where we have multiple observations and deal with estimable variance.</li>
 </ul>
 </div>
