@@ -12,7 +12,7 @@ options(mc.cores = parallel::detectCores())
 sim_values <- list(
   N = 100,                            # Number of observations.
   mu = 5,                             # Mean of the regression.
-  tau = 3                             # Variance of the regression.
+  tau = 1                             # Variance of the regression.
 )
 
 # Generate data.
@@ -38,8 +38,6 @@ data <- list(
 fit <- stan(
   file = here::here("content", "post", "stan-hierarchical", "code", "regression.stan"),
   data = data,
-  iter = 4000,
-  thin = 2,
   seed = 42
 )
 
@@ -93,12 +91,12 @@ sim_values <- list(
   K = 3,                              # Number of groups.
   g = sample(3, 100, replace = TRUE), # Vector of group assignments.
   mu = 5,                             # Mean of the population model.
-  tau = 3                             # Variance of the population model.
+  tau = 1                             # Variance of the population model.
 )
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "generate_data_01.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "code", "generate_data_01.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -120,15 +118,13 @@ data <- list(
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "hierarchical_regression_01.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01.stan"),
   data = data,
-  iter = 4000,
-  thin = 2,
   seed = 42
 )
 
 # Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "stan_utility.R"))
+source(here::here("content", "post", "stan-hierarchical", "code", "stan_utility.R"))
 check_all_diagnostics(fit)
 
 # Check trace plots.
@@ -139,12 +135,24 @@ fit %>%
     facet_args = list(nrow = 2, labeller = label_parsed)
   )
 
+# ggsave(
+#   "mcmc_trace.png",
+#   path = here::here("content", "post", "stan-hierarchical", "figures"),
+#   width = 7, height = 3, units = "in"
+# )
+
 fit %>%
   mcmc_trace(
     pars = str_c("beta[", 1:data$K, "]"),
     n_warmup = 500,
     facet_args = list(nrow = 3, labeller = label_parsed)
   )
+
+# ggsave(
+#   "mcmc_trace.png",
+#   path = here::here("content", "post", "stan-hierarchical", "figures"),
+#   width = 7, height = 3, units = "in"
+# )
 
 # Recover hyperparameter and parameter values.
 hyperpar_values <- tibble(
@@ -168,6 +176,12 @@ fit %>%
   ) +
   geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
 
+# ggsave(
+#   "mcmc_trace.png",
+#   path = here::here("content", "post", "stan-hierarchical", "figures"),
+#   width = 7, height = 3, units = "in"
+# )
+
 fit %>%
   spread_draws(beta[n]) %>%
   ggplot(aes(x = beta, y = n)) +
@@ -178,6 +192,12 @@ fit %>%
     scales = "free"
   ) +
   geom_vline(aes(xintercept = beta), par_values, color = "red")
+
+# ggsave(
+#   "mcmc_trace.png",
+#   path = here::here("content", "post", "stan-hierarchical", "figures"),
+#   width = 7, height = 3, units = "in"
+# )
 
 # Save data and model output.
 run <- list(data, fit)
