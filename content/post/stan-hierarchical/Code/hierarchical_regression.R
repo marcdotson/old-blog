@@ -118,7 +118,8 @@ data <- list(
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01.stan"),
+  # file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01b.stan"),
   data = data,
   seed = 42
 )
