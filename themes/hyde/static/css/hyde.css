@@ -126,6 +126,13 @@ a.sidebar-nav-item:focus {
   padding-bottom: 4rem;
 }
 
+.center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  width: 75%;
+}
+
 @media (min-width: 48em) {
   .content {
     max-width: 125rem;
