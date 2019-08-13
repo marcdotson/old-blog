@@ -10,15 +10,14 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  // vector[K] beta;                 // Vector of group intercepts.
-  vector[K] var_beta;                 // Vector of group intercepts.
+  real var_beta[K];               // Non-centered vector of group intercepts.
   real mu;                        // Mean of the population model.
   real<lower=0> tau;              // Variance of the population model.
 }
 
-// Non-centered parameterization.
+// Deterministic transformation for non-centered parameterization.
 transformed parameters {
-  vector[K] beta;                 // Vector of group intercepts.
+  real beta[K];                   // Deterministic vector of group intercepts.
   for (k in 1:K) {
     beta[k] = tau * var_beta[k] + mu;
   }
@@ -27,12 +26,11 @@ transformed parameters {
 // Hierarchical regression.
 model {
   // Hyperpriors.
-  var_beta ~ normal(0, 1);
   mu ~ normal(0, 5);
   tau ~ cauchy(0, 2.5);
 
   // Population model and likelihood.
-  // beta ~ normal(mu, tau);
+  var_beta ~ normal(0, 1);
   for (n in 1:N) {
     y[n] ~ normal(beta[g[n]], 1);
   }

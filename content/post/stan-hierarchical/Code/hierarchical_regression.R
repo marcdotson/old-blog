@@ -118,7 +118,6 @@ data <- list(
 
 # Calibrate the model.
 fit <- stan(
-  # file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01.stan"),
   file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01b.stan"),
   data = data,
   seed = 42
@@ -127,6 +126,8 @@ fit <- stan(
 # Diagnostics.
 source(here::here("content", "post", "stan-hierarchical", "code", "stan_utility.R"))
 check_all_diagnostics(fit)
+
+pairs(fit)
 
 # Check trace plots.
 fit %>%
