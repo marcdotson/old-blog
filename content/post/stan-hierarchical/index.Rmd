@@ -1,6 +1,6 @@
 ---
-title: Hierarchical models in Stan
-author: Marc Dotson
+title: "Hierarchical models in Stan"
+author: "Marc Dotson"
 date: '2019-08-27'
 slug: stan-hierarchical
 ---
@@ -144,7 +144,7 @@ fit %>%
   )
 ```
 
-![](figures/mcmc_trace.png)
+![](Figures/mcmc_trace.png)
 
 This aligns with what was suggested by the `Rhat` diagnostic: we have good mixing and clear convergence across all chains for both of our model parameters.
 
@@ -169,7 +169,7 @@ fit %>%
   geom_vline(aes(xintercept = values), par_values, color = "red")
 ```
 
-![](figures/marginals.png)
+![](Figures/marginals.png)
 
 The assumed parameter values have been recovered by the model! In summary, we've generated data and demonstrated that the model is working as intended.
 
@@ -333,15 +333,23 @@ model {
 }
 ```
 
-## Multiple hierarchical regression
-
+...
 
 ## Final thoughts
 
-Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for Bayesian computation. However, there are behaviors inherent to hierarchical models that make them somewhat problematic to implement in Stan. This can provide a frustrating mismatch: Providing a way into Bayesian inference only to pull it away again.
+Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:
 
-The correlations induced within a hierarchical model change the geometry sufficiently as to make their estimation via Hamiltonian Monte Carlo more challenging than the geometry of an aggregate model. Don't throw the baby out with the bathwater -- these same problems exist for other samplers as well, though they might not be as obvious, and HMC promises to still provide a more efficient and complete sampling of the posterior distribution as long as we know how to navigate their implementation.
-
-- Partial pooling (like shrinking, adaptively between an aggregate model and separate models, which helps avoid overfitting).
+- Partial pooling (like shrinking, adaptively moving between an aggregate model and separate models, which also helps avoid overfitting).
 - Estimate both individual and population parameters simultaneously.
 - Include information in the form of covariates at both individual and population levels.
+
+-----
+
+<div style= "float:left;position: relative; right: 10px;">
+![](../../marc.jpg)
+</div>
+
+### Marc Dotson
+
+Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics to undergraduate and MBA students. You can find him on [Twitter](https://twitter.com/marcdotson) and [GitHub](https://github.com/marcdotson).
+

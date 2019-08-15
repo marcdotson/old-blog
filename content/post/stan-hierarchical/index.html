@@ -1,6 +1,6 @@
 ---
-title: Hierarchical models in Stan
-author: Marc Dotson
+title: "Hierarchical models in Stan"
+author: "Marc Dotson"
 date: '2019-08-27'
 slug: stan-hierarchical
 ---
@@ -233,7 +233,7 @@ fit &lt;- stan(
 http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 2: Examine the pairs() plot to diagnose sampling problems</code></pre>
 <p>Remember the divergences diagnostic? We only have a simple hierarchical model and already our Hamiltonian Monte Carlo diagnostic has identified an issue. There is a <a href="https://arxiv.org/abs/1312.0906">good reason for these divergences</a>. The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it’s quickly evident when using Hamiltonian Monte Carlo.</p>
-<p>To address this issue, we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. Such reparameterizations are known as non-centered.</p>
+<p>To address this issue, we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.</p>
 <pre class="stan"><code>// Index values and observations.
 data {
   int&lt;lower = 1&gt; N;               // Number of individuals.
@@ -244,15 +244,14 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  // vector[K] beta;                 // Vector of group intercepts.
-  vector[K] var_beta;                 // Vector of group intercepts.
-  real mu;                        // Mean of the population model.
-  real&lt;lower=0&gt; tau;              // Variance of the population model.
+  real var_beta[K];  // Non-centered vector of group intercepts.
+  real mu;           // Mean of the population model.
+  real&lt;lower=0&gt; tau; // Variance of the population model.
 }
 
-// Non-centered parameterization.
+// Deterministic transformation for non-centered parameterization.
 transformed parameters {
-  vector[K] beta;                 // Vector of group intercepts.
+  real beta[K]; // Deterministic vector of group intercepts.
   for (k in 1:K) {
     beta[k] = tau * var_beta[k] + mu;
   }
@@ -261,27 +260,31 @@ transformed parameters {
 // Hierarchical regression.
 model {
   // Hyperpriors.
-  var_beta ~ normal(0, 1);
   mu ~ normal(0, 5);
   tau ~ cauchy(0, 2.5);
 
   // Population model and likelihood.
-  beta ~ normal(mu, tau);
+  var_beta ~ normal(0, 1);
   for (n in 1:N) {
     y[n] ~ normal(beta[g[n]], 1);
   }
 }</code></pre>
-</div>
-<div id="multiple-hierarchical-regression" class="section level2">
-<h2>Multiple hierarchical regression</h2>
+<p>…</p>
 </div>
 <div id="final-thoughts" class="section level2">
 <h2>Final thoughts</h2>
-<p>Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for Bayesian computation. However, there are behaviors inherent to hierarchical models that make them somewhat problematic to implement in Stan. This can provide a frustrating mismatch: Providing a way into Bayesian inference only to pull it away again.</p>
-<p>The correlations induced within a hierarchical model change the geometry sufficiently as to make their estimation via Hamiltonian Monte Carlo more challenging than the geometry of an aggregate model. Don’t throw the baby out with the bathwater – these same problems exist for other samplers as well, though they might not be as obvious, and HMC promises to still provide a more efficient and complete sampling of the posterior distribution as long as we know how to navigate their implementation.</p>
+<p>Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:</p>
 <ul>
-<li>Partial pooling (like shrinking, adaptively between an aggregate model and separate models, which helps avoid overfitting).</li>
+<li>Partial pooling (like shrinking, adaptively moving between an aggregate model and separate models, which also helps avoid overfitting).</li>
 <li>Estimate both individual and population parameters simultaneously.</li>
 <li>Include information in the form of covariates at both individual and population levels.</li>
 </ul>
+<hr />
+<div style="float:left;position: relative; right: 10px;">
+<p><img src="../../marc.jpg" /></p>
+</div>
+<div id="marc-dotson" class="section level3">
+<h3>Marc Dotson</h3>
+<p>Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics to undergraduate and MBA students. You can find him on <a href="https://twitter.com/marcdotson">Twitter</a> and <a href="https://github.com/marcdotson">GitHub</a>.</p>
+</div>
 </div>
