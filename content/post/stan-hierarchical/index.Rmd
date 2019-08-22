@@ -340,12 +340,13 @@ model {
 Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:
 
 - Partial pooling (like shrinking, adaptively moving between an aggregate model and separate models, which also helps avoid overfitting).
+- Dealing with interactions in a general, interpretable way (plus regularization).
 - Estimate both individual and population parameters simultaneously.
 - Include information in the form of covariates at both individual and population levels.
 
 -----
 
-<div style= "float:left;position: relative; right: 10px;">
+<div style= "float:left;position: relative; right: 10px; top: 5px;">
 ![](../../marc.jpg)
 </div>
 
