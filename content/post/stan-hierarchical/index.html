@@ -7,9 +7,9 @@ slug: stan-hierarchical
 
 
 
-<p>Bayesian inference provides an intuitive and self-consistent approach to <a href="https://betanalpha.github.io/assets/case_studies/modeling_and_inference.html">statistical modeling</a>. In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition – it’s been the <a href="https://arxiv.org/abs/1701.02434">required computation</a>. There has been a great deal of progress on this front, with <a href="https://mc-stan.org">Stan</a> arguably providing the best solution.</p>
-<p>Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by just focusing on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.</p>
-<p>The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a <a href="https://www.tidyverse.org">tidy approach</a> whenever appropriate. This post does not provide a general introduction to Bayesian inference in Stan. For that, I recommend Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, <a href="https://betanalpha.github.io/assets/case_studies/modeling_and_inference.html">Probabilistic Modeling and Statistical Inference</a> in particular, and Richard McElreath’s <a href="https://github.com/rmcelreath/rethinking"><em>Statistical Rethinking</em></a>. Much of what follows is motivated by their work.</p>
+<p>Bayesian inference provides an intuitive and self-consistent approach to <a href="https://betanalpha.github.io/assets/case_studies/modeling_and_inference.html">statistical modeling</a>. In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition – it’s been the <a href="https://arxiv.org/abs/1701.02434">required computation</a>. There has been a great deal of progress on this front, with <a href="https://mc-stan.org">Stan</a> arguably providing the best modern solution.</p>
+<p>Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by focusing on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.</p>
+<p>The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a <a href="https://www.tidyverse.org">tidy approach</a> whenever appropriate. This post does not provide an introduction to Bayesian inference in Stan. For that, I recommend Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, <a href="https://betanalpha.github.io/assets/case_studies/modeling_and_inference.html">Probabilistic Modeling and Statistical Inference</a> in particular, and Richard McElreath’s <a href="https://github.com/rmcelreath/statrethinking_winter2019"><em>Statistical Rethinking</em></a>. Much of what follows is motivated by their work as well as Ben Goodrich’s StanCon 2019 tutorial.</p>
 <div id="simple-regression" class="section level2">
 <h2>Simple regression</h2>
 <p>Let’s start with a simple (non-hierarchical) regression. In a Stan script, which <a href="https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/">has native support in RStudio</a>, we specify the three required blocks for a Stan model: <code>data</code>, <code>parameters</code>, and <code>model</code> (i.e., the prior and the likelihood).</p>
@@ -96,7 +96,7 @@ fit &lt;- stan(
   seed = 42
 )</code></pre>
 <p>Stan takes the three required blocks in <code>regression.stan</code> and creates a Hamiltonian Monte Carlo sampler to produce draws from the posterior.</p>
-<p>Once the model has finished running, we can check diagnostics, including checking for divergences, a key indicator of problems with the sampler that are unique to Hamiltonian Monte Carlo.</p>
+<p>Once the model has finished running, we can check diagnostics, including checking for divergences, a powerful indicator of problems with the sampler that is unique to Hamiltonian Monte Carlo.</p>
 <pre class="r"><code># Diagnostics.
 source(here::here(&quot;code&quot;, &quot;stan_utility.R&quot;))
 check_all_diagnostics(fit)</code></pre>
@@ -105,7 +105,7 @@ check_all_diagnostics(fit)</code></pre>
 [1] &quot;0 of 4000 iterations ended with a divergence (0%)&quot;
 [1] &quot;0 of 4000 iterations saturated the maximum tree depth of 10 (0%)&quot;
 [1] &quot;E-FMI indicated no pathological behavior&quot;</code></pre>
-<p>The diagnostics check out! To be thorough, we can also check the trace plots.</p>
+<p>The diagnostics check out! If we’d like, we can also check the trace plots.</p>
 <pre class="r"><code># Check trace plots.
 fit %&gt;%
   mcmc_trace(
@@ -114,8 +114,8 @@ fit %&gt;%
     facet_args = list(nrow = 2, labeller = label_parsed)
   )</code></pre>
 <p><img src="figures/mcmc_trace.png" /></p>
-<p>This aligns with what was suggested by the <code>Rhat</code> diagnostic: we have good mixing and clear convergence across all chains for both of our model parameters.</p>
-<p>Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for our parameter values to confirm that the assumed parameter values used when generating data are within the 95% credible intervals.</p>
+<p>This aligns with what was suggested by the <code>Rhat</code> diagnostic: We have good mixing and clear convergence across all chains for both of our model parameters.</p>
+<p>Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within the 95% credible intervals.</p>
 <pre class="r"><code># Recover parameter values.
 par_values &lt;- tibble(
   .variable = c(&quot;mu&quot;, &quot;tau&quot;),
@@ -131,13 +131,17 @@ fit %&gt;%
     nrow = 2,
     scales = &quot;free&quot;
   ) +
-  geom_vline(aes(xintercept = values), par_values, color = &quot;red&quot;)</code></pre>
+  geom_vline(
+    aes(xintercept = values), 
+    par_values, 
+    color = &quot;red&quot;
+  )</code></pre>
 <p><img src="figures/marginals.png" /></p>
-<p>The assumed parameter values have been recovered by the model! In summary, we’ve generated data and demonstrated that the model is working as intended.</p>
+<p>The assumed parameter values have been recovered by the model! In summary, we’ve specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.</p>
 </div>
 <div id="simple-hierarchical-regression" class="section level2">
 <h2>Simple hierarchical regression</h2>
-<p>So why move to a hierarchical model? The most straightforward reason is that sinking feeling we have about the assumption that a single set of parameters will effectively describe the entire population. In terms of customer satisfaction, we know there is heterogeneity across consumers – not everyone behaves or thinks the same. At the very least, we can think about satisfaction being different for different customer segments.</p>
+<p>So why use a hierarchical model? The most straightforward reason is that sinking feeling we have about the assumption that a single set of parameters will effectively describe the entire population. In terms of customer satisfaction, we know there is heterogeneity across consumers – not everyone behaves or thinks the same. At the very least, we can think about satisfaction being different for different customer segments.</p>
 <p>So what does a simple hierarchical model look like in Stan?</p>
 <pre class="stan"><code>// Index values and observations.
 data {
@@ -166,7 +170,7 @@ model {
     y[n] ~ normal(beta[g[n]], 1);
   }
 }</code></pre>
-<p>In the <code>data</code> block, we now have a vector <code>g</code> indicating which one of <code>K</code> groups each of our <code>N</code> individuals belong to. In the <code>parameter</code> block, we now have <code>K</code>-dimensional vector of <code>beta</code> parameters, a separate mean for each of the <code>K</code> of groups. In the <code>model</code> block we can see that the likelihood (now within a for loop) is still assumed <code>normal</code>, but now each individual’s observed overall satisfaction has a mean of <code>beta</code> specific to the group they belong to. We also have a population model <code>beta ~ normal(mu, tau)</code> that says these separate, group-level <code>beta</code> coefficients are themselves drawn from a population that is assumed <code>normal</code> with a mean <code>mu</code> and variance <code>tau</code>. This is what we mean by a hierarchy: there is an additional level in our model, the lower-level likelihood and upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are a prior on a prior): a <code>normal</code> hyperprior on <code>mu</code> and a <code>cauchy</code> hyperprior on <code>tau</code>.</p>
+<p>In the <code>data</code> block, we now have a vector <code>g</code> indicating which one of <code>K</code> groups each of our <code>N</code> individuals belong to. In the <code>parameter</code> block, we now have a <code>K</code>-dimensional vector of <code>beta</code> parameters, a separate mean for each of the <code>K</code> of groups. In the <code>model</code> block we can see that the likelihood (now within a for loop) is still assumed <code>normal</code>, but now each individual’s observed overall satisfaction has a mean of <code>beta</code> specific to the group they belong to. We also have a population model <code>beta ~ normal(mu, tau)</code> that says these separate, group-level <code>beta</code> coefficients are themselves drawn from a population that is assumed <code>normal</code> with a mean <code>mu</code> and variance <code>tau</code>. This is what we mean by a hierarchy: there is an additional level in our model, the lower-level likelihood and upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are a prior on a prior): a <code>normal</code> hyperprior on <code>mu</code> and a <code>cauchy</code> hyperprior on <code>tau</code>.</p>
 <p>We can again translate this Stan script, <code>hierarchical_regression_01.stan</code>, into <code>data</code> and <code>generated quantities</code> blocks called <code>generate_data_01.stan</code> to use Stan to generate data for us.</p>
 <pre class="stan"><code>// Index and hyperparameter values.
 data {
@@ -270,12 +274,18 @@ model {
   }
 }</code></pre>
 <p>…need to finish results.</p>
+<ul>
+<li>Increasing <code>adapt_delta</code> (the tuning parameter, default is <code>0.8</code>).</li>
+<li>Improving numerical accuracy of the calculations (e.g., to more than 8 decimal places).</li>
+<li>Reparameterizing your model (including possibly specifying more informative priors).</li>
+</ul>
 </div>
 <div id="final-thoughts" class="section level2">
 <h2>Final thoughts</h2>
 <p>Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:</p>
 <ul>
 <li>Partial pooling (like shrinking, adaptively moving between an aggregate model and separate models, which also helps avoid overfitting).</li>
+<li>Dealing with interactions in a general, interpretable way (plus regularization).</li>
 <li>Estimate both individual and population parameters simultaneously.</li>
 <li>Include information in the form of covariates at both individual and population levels.</li>
 </ul>

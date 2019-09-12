@@ -1,6 +1,7 @@
 # Preamble ----------------------------------------------------------------
 # Load packages.
 library(tidyverse)
+library(brms)
 library(rstan)
 library(bayesplot)
 library(tidybayes)
@@ -32,6 +33,23 @@ sim_y <- extract(sim_data)$y
 data <- list(
   N = length(sim_y),                 # Number of individuals.
   y = as.vector(sim_y)               # Vector of observations.
+)
+
+# Check Stan code using brms.
+get_prior(
+  y ~ 1,
+  data = data,
+  family = gaussian()
+)
+
+make_stancode(
+  y ~ 1,
+  data = data,
+  family = gaussian(),
+  prior = c(
+    prior(normal(0, 5), class = Intercept),
+    prior(cauchy(0, 2.5), class = sigma)
+  )
 )
 
 # Calibrate the model.
@@ -114,6 +132,33 @@ data <- list(
   K = sim_values$K,                  # Number of groups.
   y = as.vector(sim_y),              # Vector of observations.
   g = sim_values$g                   # Vector of group assignments.
+)
+
+# Check Stan code using brms.
+get_prior(
+  y ~ (1 | g),
+  data = data,
+  family = gaussian()
+)
+
+test_data <- make_standata(
+  y ~ (1 | g),
+  data = data,
+  family = gaussian()
+  # prior = c(
+  #   prior(normal(0, 5), class = Intercept),
+  #   prior(cauchy(0, 2.5), class = sigma)
+  # )
+)
+
+make_stancode(
+  y ~ (1 | g),
+  data = data,
+  family = gaussian()
+  # prior = c(
+  #   prior(normal(0, 5), class = Intercept),
+  #   prior(cauchy(0, 2.5), class = sigma)
+  # )
 )
 
 # Calibrate the model.
