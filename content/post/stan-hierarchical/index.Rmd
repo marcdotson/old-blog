@@ -1,7 +1,7 @@
 ---
 title: "Hierarchical models in Stan"
 author: "Marc Dotson"
-date: '2019-08-15'
+date: '2019-09-12'
 slug: stan-hierarchical
 ---
 
@@ -18,8 +18,8 @@ Let's start with a simple (non-hierarchical) regression. In a Stan script, which
 ```{stan regression, output.var = "regression", eval = FALSE}
 // Index value and observations.
 data {
-  int<lower = 1> N;  // Number of individuals.
-  vector[N] y;       // Vector of observations.
+  int<lower=1> N;  // Number of individuals.
+  vector[N] y;     // Vector of observations.
 }
 
 // Parameters.
@@ -386,6 +386,11 @@ Both the assumed hyperparameter and parameter values have been recovered by the 
 
 ## Hierarchical regression
 
+In this last section, let's move from *simple* hierarchical regression to something more complete. Specifically, let's:
+
+- Include covariates.
+- Not assume we know the variance.
+
 
 
 we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
@@ -431,6 +436,7 @@ model {
 ...need to finish results.
 
 - Reparameterizing your model (including possibly specifying more informative priors).
+- Clean-up: Syntax spacing, observations instead of individuals.
 
 ## Final thoughts
 
