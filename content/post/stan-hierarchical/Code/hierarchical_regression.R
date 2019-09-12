@@ -9,6 +9,9 @@ library(tidybayes)
 # Set Stan options.
 options(mc.cores = parallel::detectCores())
 
+# 00 Simple Regression ----------------------------------------------------
+# Simple (non-hierarchical) regression with no covariates and known variance.
+
 # Specify data and parameter values.
 sim_values <- list(
   N = 100,                            # Number of observations.
@@ -18,7 +21,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "code", "generate_data.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -35,32 +38,32 @@ data <- list(
   y = as.vector(sim_y)               # Vector of observations.
 )
 
-# Check Stan code using brms.
-get_prior(
-  y ~ 1,
-  data = data,
-  family = gaussian()
-)
-
-make_stancode(
-  y ~ 1,
-  data = data,
-  family = gaussian(),
-  prior = c(
-    prior(normal(0, 5), class = Intercept),
-    prior(cauchy(0, 2.5), class = sigma)
-  )
-)
+# # Check Stan code using brms.
+# get_prior(
+#   y ~ 1,
+#   data = data,
+#   family = gaussian()
+# )
+#
+# make_stancode(
+#   y ~ 1,
+#   data = data,
+#   family = gaussian(),
+#   prior = c(
+#     prior(normal(0, 5), class = Intercept),
+#     prior(cauchy(0, 2.5), class = sigma)
+#   )
+# )
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "code", "regression.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "regression.stan"),
   data = data,
   seed = 42
 )
 
 # Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "code", "stan_utility.R"))
+source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
 check_all_diagnostics(fit)
 
 # Check trace plots.
@@ -73,7 +76,7 @@ fit %>%
 
 ggsave(
   "mcmc_trace.png",
-  path = here::here("content", "post", "stan-hierarchical", "figures"),
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
 
@@ -96,7 +99,7 @@ fit %>%
 
 ggsave(
   "marginals.png",
-  path = here::here("content", "post", "stan-hierarchical", "figures"),
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
 
@@ -114,7 +117,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "code", "generate_data_01.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_01.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -134,75 +137,58 @@ data <- list(
   g = sim_values$g                   # Vector of group assignments.
 )
 
-# Check Stan code using brms.
-get_prior(
-  y ~ (1 | g),
-  data = data,
-  family = gaussian()
-)
-
-test_data <- make_standata(
-  y ~ (1 | g),
-  data = data,
-  family = gaussian()
-  # prior = c(
-  #   prior(normal(0, 5), class = Intercept),
-  #   prior(cauchy(0, 2.5), class = sigma)
-  # )
-)
-
-make_stancode(
-  y ~ (1 | g),
-  data = data,
-  family = gaussian()
-  # prior = c(
-  #   prior(normal(0, 5), class = Intercept),
-  #   prior(cauchy(0, 2.5), class = sigma)
-  # )
-)
+# # Check Stan code using brms.
+# get_prior(
+#   y ~ (1 | g),
+#   data = data,
+#   family = gaussian()
+# )
+#
+# test_data <- make_standata(
+#   y ~ (1 | g),
+#   data = data,
+#   family = gaussian(),
+#   prior = c(
+#     prior(normal(0, 5), class = Intercept),
+#     prior(cauchy(0, 2.5), class = sigma)
+#   )
+# )
+#
+# make_stancode(
+#   y ~ (1 | g),
+#   data = data,
+#   family = gaussian(),
+#   prior = c(
+#     prior(normal(0, 5), class = Intercept),
+#     prior(cauchy(0, 2.5), class = sigma)
+#   )
+# )
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "code", "hierarchical_regression_01.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_01.stan"),
   data = data,
-  # iter = 4000,
-  # thin = 2,
-  # control = list(adapt_delta = 0.98),
+  control = list(adapt_delta = 0.99),
   seed = 42
 )
 
-pairs(fit)
-
 # Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "code", "stan_utility.R"))
+source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
 check_all_diagnostics(fit)
 
 # Check trace plots.
 fit %>%
   mcmc_trace(
-    pars = c("mu", "tau"),
+    pars = c("mu", "tau", str_c("beta[", 1:data$K, "]")),
     n_warmup = 500,
-    facet_args = list(nrow = 2, labeller = label_parsed)
+    facet_args = list(nrow = 5, labeller = label_parsed)
   )
 
-# ggsave(
-#   "mcmc_trace.png",
-#   path = here::here("content", "post", "stan-hierarchical", "figures"),
-#   width = 7, height = 3, units = "in"
-# )
-
-fit %>%
-  mcmc_trace(
-    pars = str_c("beta[", 1:data$K, "]"),
-    n_warmup = 500,
-    facet_args = list(nrow = 3, labeller = label_parsed)
-  )
-
-# ggsave(
-#   "mcmc_trace.png",
-#   path = here::here("content", "post", "stan-hierarchical", "figures"),
-#   width = 7, height = 3, units = "in"
-# )
+ggsave(
+  "mcmc_trace-01.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 7, height = 6, units = "in"
+)
 
 # Recover hyperparameter and parameter values.
 hyperpar_values <- tibble(
@@ -226,11 +212,11 @@ fit %>%
   ) +
   geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
 
-# ggsave(
-#   "mcmc_trace.png",
-#   path = here::here("content", "post", "stan-hierarchical", "figures"),
-#   width = 7, height = 3, units = "in"
-# )
+ggsave(
+  "marginals-01a.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 7, height = 3, units = "in"
+)
 
 fit %>%
   spread_draws(beta[n]) %>%
@@ -243,15 +229,11 @@ fit %>%
   ) +
   geom_vline(aes(xintercept = beta), par_values, color = "red")
 
-# ggsave(
-#   "mcmc_trace.png",
-#   path = here::here("content", "post", "stan-hierarchical", "figures"),
-#   width = 7, height = 3, units = "in"
-# )
-
-# Save data and model output.
-run <- list(data, fit)
-write_rds(run, here::here("content", "post", "stan-hierarchical", "run_01.rds"))
+ggsave(
+  "marginals-01b.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 7, height = 5, units = "in"
+)
 
 # 02 Multiple Hierarchical Regression -------------------------------------
 # Hierarchical regression with covariates and known variance.

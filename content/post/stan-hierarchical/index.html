@@ -72,7 +72,7 @@ sim_values &lt;- list(
 
 # Generate data.
 sim_data &lt;- stan(
-  file = here::here(&quot;code&quot;, &quot;generate_data.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;generate_data.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -91,14 +91,14 @@ data &lt;- list(
 
 # Calibrate the model.
 fit &lt;- stan(
-  file = here::here(&quot;code&quot;, &quot;regression.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;regression.stan&quot;),
   data = data,
   seed = 42
 )</code></pre>
 <p>Stan takes the three required blocks in <code>regression.stan</code> and creates a Hamiltonian Monte Carlo sampler to produce draws from the posterior.</p>
 <p>Once the model has finished running, we can check diagnostics, including checking for divergences, a powerful indicator of problems with the sampler that is unique to Hamiltonian Monte Carlo.</p>
 <pre class="r"><code># Diagnostics.
-source(here::here(&quot;code&quot;, &quot;stan_utility.R&quot;))
+source(here::here(&quot;Code&quot;, &quot;stan_utility.R&quot;))
 check_all_diagnostics(fit)</code></pre>
 <pre><code>[1] &quot;n_eff / iter looks reasonable for all parameters&quot;
 [1] &quot;Rhat looks reasonable for all parameters&quot;
@@ -113,7 +113,7 @@ fit %&gt;%
     n_warmup = 500,
     facet_args = list(nrow = 2, labeller = label_parsed)
   )</code></pre>
-<p><img src="figures/mcmc_trace.png" /></p>
+<p><img src="Figures/mcmc_trace-00.png" /></p>
 <p>This aligns with what was suggested by the <code>Rhat</code> diagnostic: We have good mixing and clear convergence across all chains for both of our model parameters.</p>
 <p>Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within the 95% credible intervals.</p>
 <pre class="r"><code># Recover parameter values.
@@ -136,7 +136,7 @@ fit %&gt;%
     par_values, 
     color = &quot;red&quot;
   )</code></pre>
-<p><img src="figures/marginals.png" /></p>
+<p><img src="Figures/marginals-00.png" /></p>
 <p>The assumed parameter values have been recovered by the model! In summary, we’ve specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.</p>
 </div>
 <div id="simple-hierarchical-regression" class="section level2">
@@ -206,7 +206,7 @@ sim_values &lt;- list(
 
 # Generate data.
 sim_data &lt;- stan(
-  file = here::here(&quot;code&quot;, &quot;generate_data_01.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;generate_data_01.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -228,7 +228,7 @@ data &lt;- list(
 
 # Calibrate the model.
 fit &lt;- stan(
-  file = here::here(&quot;code&quot;, &quot;hierarchical_regression_01.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;hierarchical_regression_01.stan&quot;),
   data = data,
   seed = 42
 )</code></pre>
@@ -237,7 +237,71 @@ fit &lt;- stan(
 http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 2: Examine the pairs() plot to diagnose sampling problems</code></pre>
 <p>Remember the divergences diagnostic? We only have a simple hierarchical model and already our Hamiltonian Monte Carlo diagnostic has identified an issue. There is a <a href="https://arxiv.org/abs/1312.0906">good reason for these divergences</a>. The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it’s quickly evident when using Hamiltonian Monte Carlo.</p>
-<p>To address this issue, we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.</p>
+<p>To address this issue, our first step (and one that is helpfully suggested in the warning message above) is to increase the <code>adapt_delta</code>, which functions like a step size as the sampler navigates the posterior. A larger <code>adapt_delta</code> equates to a smaller step size, meaning the sampler will be more careful as it navigates but will also take longer. We find that <code>adapt_delta = 0.99</code> results in no divergences (it only goes to 1).</p>
+<pre class="r"><code># Calibrate the model.
+fit &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;hierarchical_regression_01.stan&quot;),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)</code></pre>
+<p>We can run our diagnostics to make sure everything looks okay.</p>
+<pre class="r"><code># Diagnostics.
+source(here::here(&quot;Code&quot;, &quot;stan_utility.R&quot;))
+check_all_diagnostics(fit)</code></pre>
+<pre><code>[1] &quot;n_eff / iter looks reasonable for all parameters&quot;
+[1] &quot;Rhat looks reasonable for all parameters&quot;
+[1] &quot;0 of 4000 iterations ended with a divergence (0%)&quot;
+[1] &quot;0 of 4000 iterations saturated the maximum tree depth of 10 (0%)&quot;
+[1] &quot;E-FMI indicated no pathological behavior&quot;</code></pre>
+<p>Everything looks good! We can check trace plots, this time for both the population-level hyperparameters and the group-level parameters.</p>
+<pre class="r"><code># Check trace plots.
+fit %&gt;%
+  mcmc_trace(
+    pars = c(&quot;mu&quot;, &quot;tau&quot;, str_c(&quot;beta[&quot;, 1:data$K, &quot;]&quot;)),
+    n_warmup = 500,
+    facet_args = list(nrow = 5, labeller = label_parsed)
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-01.png" /></p>
+<p>Finally, we can demonstrate parameter recovery for both the population-level hyperparameters and the group-level parameters.</p>
+<pre class="r"><code># Recover hyperparameter and parameter values.
+hyperpar_values &lt;- tibble(
+  .variable = c(&quot;mu&quot;, &quot;tau&quot;),
+  values = c(sim_values$mu, sim_values$tau),
+)
+
+par_values &lt;- tibble(
+  n = 1:data$K,
+  beta = as.vector(sim_beta)
+)
+
+fit %&gt;%
+  gather_draws(mu, tau) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = &quot;free&quot;
+  ) +
+  geom_vline(aes(xintercept = values), hyperpar_values, color = &quot;red&quot;)</code></pre>
+<p><img src="Figures/marginals-01a.png" /></p>
+<pre class="r"><code>fit %&gt;%
+  spread_draws(beta[n]) %&gt;%
+  ggplot(aes(x = beta, y = n)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ n,
+    nrow = 3,
+    scales = &quot;free&quot;
+  ) +
+  geom_vline(aes(xintercept = beta), par_values, color = &quot;red&quot;)</code></pre>
+<p><img src="Figures/marginals-01b.png" /></p>
+<p>Both the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a simple hierarchical regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working.</p>
+</div>
+<div id="hierarchical-regression" class="section level2">
+<h2>Hierarchical regression</h2>
+<p>we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.</p>
 <pre class="stan"><code>// Index values and observations.
 data {
   int&lt;lower = 1&gt; N;               // Number of individuals.
@@ -275,8 +339,6 @@ model {
 }</code></pre>
 <p>…need to finish results.</p>
 <ul>
-<li>Increasing <code>adapt_delta</code> (the tuning parameter, default is <code>0.8</code>).</li>
-<li>Improving numerical accuracy of the calculations (e.g., to more than 8 decimal places).</li>
 <li>Reparameterizing your model (including possibly specifying more informative priors).</li>
 </ul>
 </div>
