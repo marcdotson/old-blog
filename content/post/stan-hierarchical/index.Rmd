@@ -390,10 +390,9 @@ In this last section, let's move from *simple* hierarchical regression to someth
 
 - Include covariates.
 - Not assume we know the variance.
+- Set the hyperprior values.
 
-
-
-we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
+...we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
 
 ```{stan hierarchical-regression-01b, output.var = "hierarchical_regression_01b", eval = FALSE}
 // Index values and observations.

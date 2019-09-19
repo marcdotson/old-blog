@@ -1,20 +1,21 @@
 // Hierarchical regression with covariates and known variance.
 
-// Index values, observations, and covariates.
+// Index values, observations, covariates, and hyperprior values.
 data {
-  int<lower=1> N;            // Number of individual-level units.
-  int<lower=1> K;            // Number of population-level groups.
-  int<lower=1> C;            // Number of individual-level covariates.
-  int<lower=1> J;            // Number of population-level covariates.
+  int<lower = 1> N;               // Number of observations.
+  int<lower = 1> K;               // Number of groups.
+  int<lower = 1> C;               // Number of observations-level covariates.
+  int<lower = 1> J;               // Number of population-level covariates.
 
-  vector[N] y;               // Vector of observations.
-  matrix[N, C] X;            // Matrix of individual-level covariates.
-  matrix[K, J] Z;            // Matrix of population-level covariates.
+  real<lower=0> tau_scale;   // Scale of variance in the individual-level model.
+  real gamma_mean;           // Mean of coefficients for the population-level model.
+  real<lower=0> gamma_scale; // Scale of coefficients for the population-level model.
+  real<lower=0> Sigma_scale; // Scale of covariance for the population-level model.
 
-  // real<lower=0> tau_scale;   // Scale of variance in the individual-level model.
-  // real gamma_mean;           // Mean of coefficients for the population-level model.
-  // real<lower=0> gamma_scale; // Scale of coefficients for the population-level model.
-  // real<lower=0> Sigma_scale; // Scale of covariance for the population-level model.
+  vector[N] y;                    // Vector of observations.
+  int<lower = 1, upper = K> g[N]; // Vector of group assignments.
+  matrix[N, C] X;                 // Matrix of observation-level covariates.
+  matrix[K, J] Z;                 // Matrix of population-level covariates.
 }
 
 // Parameters and hyperparameters.
