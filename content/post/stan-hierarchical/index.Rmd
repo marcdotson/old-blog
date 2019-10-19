@@ -1,7 +1,7 @@
 ---
 title: "Hierarchical models in Stan"
 author: "Marc Dotson"
-date: '2019-09-12'
+date: '2019-10-18'
 slug: stan-hierarchical
 ---
 
@@ -297,7 +297,7 @@ http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 
 Remember the divergences diagnostic? We only have a simple hierarchical model and already our Hamiltonian Monte Carlo diagnostic has identified an issue. There is a [good reason for these divergences](https://arxiv.org/abs/1312.0906). The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it's quickly evident when using Hamiltonian Monte Carlo.
 
-To address this issue, our first step (and one that is helpfully suggested in the warning message above) is to increase the `adapt_delta`, which functions like a step size as the sampler navigates the posterior. A larger `adapt_delta` equates to a smaller step size, meaning the sampler will be more careful as it navigates but will also take longer. We find that `adapt_delta = 0.99` results in no divergences (it only goes to 1).
+To address this issue, our first step (and one that is helpfully suggested in the warning message above) is to increase the `adapt_delta`, which functions like a step size as the sampler navigates the posterior. A larger `adapt_delta` equates to a smaller step size, meaning the sampler will be more careful as it navigates but will also take longer. We find that `adapt_delta = 0.99` (it only goes to 1) results in no divergences.
 
 ```{r model-calibration-01b, eval = FALSE}
 # Calibrate the model.
@@ -384,38 +384,27 @@ fit %>%
 
 Both the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a simple hierarchical regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working.
 
-## Hierarchical regression
+## Multiple hierarchical regression
 
-In this last section, let's move from *simple* hierarchical regression to something more complete. Specifically, let's:
+In this last section, let's move from *simple* hierarchical regression to *multiple* hierarchical regression by including observation-level covariates and a matrix of `Beta` coefficients.
 
-- Include covariates.
-- Not assume we know the variance.
-- Set the hyperprior values.
-
-...we need to reparameterize our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
-
-```{stan hierarchical-regression-01b, output.var = "hierarchical_regression_01b", eval = FALSE}
-// Index values and observations.
+```{stan hierarchical-regression-02, output.var = "hierarchical_regression_02", eval = FALSE}
+// Index values, observations, and covariates.
 data {
   int<lower = 1> N;               // Number of individuals.
   int<lower = 1> K;               // Number of groups.
+  int<lower = 1> I;               // Number of observation-level covariates.
+
   vector[N] y;                    // Vector of observations.
   int<lower = 1, upper = K> g[N]; // Vector of group assignments.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
 }
 
 // Parameters and hyperparameters.
 parameters {
-  real var_beta[K];  // Non-centered vector of group intercepts.
-  real mu;           // Mean of the population model.
-  real<lower=0> tau; // Variance of the population model.
-}
-
-// Deterministic transformation for non-centered parameterization.
-transformed parameters {
-  real beta[K]; // Deterministic vector of group intercepts.
-  for (k in 1:K) {
-    beta[k] = tau * var_beta[k] + mu;
-  }
+  matrix[K, I] Beta;              // Matrix of observation-level coefficients.
+  real mu;                        // Mean of the population model.
+  real<lower=0> tau;              // Variance of the population model.
 }
 
 // Hierarchical regression.
@@ -425,17 +414,193 @@ model {
   tau ~ cauchy(0, 2.5);
 
   // Population model and likelihood.
-  var_beta ~ normal(0, 1);
+  for (k in 1:K) {
+    Beta[k,] ~ normal(mu, tau);
+  }
   for (n in 1:N) {
-    y[n] ~ normal(beta[g[n]], 1);
+    y[n] ~ normal(Beta[g[n],] * X[n,]', 1);
   }
 }
 ```
 
-...need to finish results.
+In the `data` block, we now have an index `I` specifiying the number of observation-level covariates and an `N x I` matrix `X` that contains those covariates. In the `parameters` block, `Beta` is now a `K x I` matrix of coefficients rather than a vector. The `model` block changes accordingly, with the population model in a for loop.
 
-- Reparameterizing your model (including possibly specifying more informative priors).
-- Clean-up: Syntax spacing, observations instead of individuals.
+We can again translate this Stan script, `hierarchical_regression_02.stan`, into `data` and `generated quantities` blocks called `generate_data_02.stan` to use Stan to generate data, including `X`, for us.
+
+```{stan generate-data-02, output.var = "generate_data_02", eval = FALSE}
+// Index values, observations, and covariates.
+data {
+  int<lower = 1> N;               // Number of individuals.
+  int<lower = 1> K;               // Number of groups.
+  int<lower = 1> I;               // Number of observation-level covariates.
+  // int<lower = 1> J;               // Number of population-level covariates.
+
+  int<lower = 1, upper = K> g[N]; // Vector of group assignments.
+  real mu;                        // Mean of the population model.
+  real<lower=0> tau;              // Variance of the population model.
+}
+
+// Generate data according to the hierarchical regression.
+generated quantities {
+  vector[N] y;                    // Vector of observations.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[K, I] Beta;              // Matrix of group-level coefficients.
+
+  // Assign to a group, draw parameter values, generate data.
+  for (k in 1:K) {
+    for (i in 1:I) {
+      Beta[k, i] = normal_rng(mu, tau);
+    }
+  }
+  for (n in 1:N) {
+    for (i in 1:I) {
+      X[n, i] = uniform_rng(1, 7);
+    }
+    y[n] = normal_rng(Beta[g[n],] * X[n,]', 1);
+  }
+}
+```
+
+Let's generate data by calling this Stan script from R.
+
+```{r simulation-02, eval = FALSE}
+# Specify data and hyperparameter values.
+sim_values <- list(
+  N = 100,                            # Number of individuals.
+  K = 3,                              # Number of groups.
+  I = 2,                              # Number of observation-level covariates.
+  g = sample(3, 100, replace = TRUE), # Vector of group assignments.
+  mu = 5,                             # Mean of the population model.
+  tau = 1                             # Variance of the population model.
+)
+
+# Generate data.
+sim_data <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_02.stan"),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = "Fixed_param"
+)
+
+# Extract simulated data and group intercepts.
+sim_y <- extract(sim_data)$y
+sim_X <- extract(sim_data)$X
+sim_Beta <- extract(sim_data)$Beta
+```
+
+Let's fit the model and recover parameters.
+
+```{r model-calibration-02, eval = FALSE}
+# Specify data.
+data <- list(
+  N = sim_values$N,                  # Number of individuals.
+  K = sim_values$K,                  # Number of groups.
+  I = sim_values$I,                  # Number of observation-level covariates.
+
+  # Matrix of observation-level covariates.
+  X = matrix(
+    as.vector(sim_X),
+    nrow = sim_values$N,
+    ncol = sim_values$I
+  ),
+
+  y = as.vector(sim_y),              # Vector of observations.
+  g = sim_values$g                   # Vector of group assignments.
+)
+
+# Calibrate the model.
+fit <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02.stan"),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)
+```
+
+Note that we've preemptively set `adapt_delta = 0.99` given the previous model. Let's confirm things have worked by running diagnostics.
+
+```{r diagnostics-02, eval = FALSE}
+# Diagnostics.
+source(here::here("Code", "stan_utility.R"))
+check_all_diagnostics(fit)
+```
+
+```
+[1] "n_eff / iter looks reasonable for all parameters"
+[1] "Rhat looks reasonable for all parameters"
+[1] "0 of 4000 iterations ended with a divergence (0%)"
+[1] "0 of 4000 iterations saturated the maximum tree depth of 10 (0%)"
+[1] "E-FMI indicated no pathological behavior"
+```
+Everything looks good! Let's look at our expanded trace plots.
+
+```{r trace-plots-02, eval = FALSE}
+# Check trace plots.
+par_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
+for (i in 2:data$I) {
+  temp <- str_c("Beta[", 1:data$K, ",", i, "]")
+  par_string <- c(par_string, temp)
+}
+fit %>%
+  mcmc_trace(
+    pars = c("mu", "tau", par_string),
+    n_warmup = 500,
+    facet_args = list(nrow = 4, ncol = 2, labeller = label_parsed)
+  )
+```
+
+![](Figures/mcmc_trace-02.png)
+
+Finally, we can demonstrate parameter recovery.
+
+```{r marginals-02a, eval = FALSE}
+# Recover hyperparameter and parameter values.
+hyperpar_values <- tibble(
+  .variable = c("mu", "tau"),
+  values = c(sim_values$mu, sim_values$tau),
+)
+
+par_values <- tibble(
+  n = rep(1:(data$K), data$I),
+  beta = as.vector(sim_Beta)
+)
+
+fit %>%
+  gather_draws(mu, tau) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = "free"
+  ) +
+  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
+```
+
+![](Figures/marginals-02a.png)
+
+```{r marginals-02b, eval = FALSE}
+fit %>%
+  spread_draws(Beta[n, i]) %>%
+  ggplot(aes(x = Beta, y = i)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ n,
+    nrow = 3,
+    scales = "free"
+  ) +
+  geom_vline(aes(xintercept = beta), par_values, color = "red")
+```
+
+![](Figures/marginals-02b.png)
+
+The models are okay, but a little off. In particular, there are a few more things we should consider:
+
+- Allowing for covariates for the population-level model.
+- Reparameterizing our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
+- Including specific output in the generated quantities block to run LOO/WAIC.
 
 ## Final thoughts
 
@@ -443,8 +608,11 @@ Hierarchical models should be our default approach in most applications and Stan
 
 - Partial pooling (like shrinking, adaptively moving between an aggregate model and separate models, which also helps avoid overfitting).
 - Dealing with interactions in a general, interpretable way (plus regularization).
-- Estimate both individual and population parameters simultaneously.
-- Include information in the form of covariates at both individual and population levels.
+- Estimate both observation and population parameters simultaneously.
+- Include information in the form of covariates at both observation and population levels.
+
+<!-- - Reparameterizing your model (including possibly specifying more informative priors). -->
+<!-- - Clean-up: Syntax spacing, observations instead of individuals. -->
 
 -----
 

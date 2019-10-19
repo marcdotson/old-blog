@@ -2,7 +2,7 @@
 
 // Index values and observations.
 data {
-  int<lower = 1> N;               // Number of observations.
+  int<lower = 1> N;               // Number of individuals.
   int<lower = 1> K;               // Number of groups.
   vector[N] y;                    // Vector of observations.
   int<lower = 1, upper = K> g[N]; // Vector of group assignments.

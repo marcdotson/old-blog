@@ -1,4 +1,4 @@
-// Hierarchical regression with no covariates and known variance.
+// Hierarchical regression with covariates and known variance.
 
 // Index values and observations.
 data {
