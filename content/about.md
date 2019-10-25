@@ -1,7 +1,7 @@
 ---
 title: "Two brothers with a mostly Bayesian focus"
 slug: about
-date: '2019-07-30'
+date: '2019-10-22'
 type: page
 ---
 

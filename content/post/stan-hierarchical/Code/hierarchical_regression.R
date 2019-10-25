@@ -21,7 +21,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_00.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -198,7 +198,7 @@ ggsave(
 sim_values <- list(
   N = 100,                            # Number of individuals.
   K = 3,                              # Number of groups.
-  I = 2,                              # Number of observation-level covariates.
+  I = 4,                              # Number of observation-level covariates.
   g = sample(3, 100, replace = TRUE), # Vector of group assignments.
   mu = 5,                             # Mean of the population model.
   tau = 1                             # Variance of the population model.
@@ -258,7 +258,11 @@ fit %>%
   mcmc_trace(
     pars = c("mu", "tau", par_string),
     n_warmup = 500,
-    facet_args = list(nrow = 4, ncol = 2, labeller = label_parsed)
+    facet_args = list(
+      nrow = (data$I * data$K + 2) / 2,
+      ncol = 2,
+      labeller = label_parsed
+    )
   )
 
 ggsave(
@@ -274,9 +278,12 @@ hyperpar_values <- tibble(
 )
 
 par_values <- tibble(
-  n = rep(1:(data$K), data$I),
-  beta = as.vector(sim_Beta)
-)
+  n = sort(rep(1:(data$K), data$I)),
+  i = rep(1:(data$I), data$K),
+  .variable = str_c("Beta", "_", n, "_", i),
+  values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
+) %>%
+  select(.variable, values)
 
 fit %>%
   gather_draws(mu, tau) %>%
@@ -296,20 +303,22 @@ ggsave(
 )
 
 fit %>%
-  spread_draws(Beta[n, i]) %>%
-  ggplot(aes(x = Beta, y = i)) +
+  gather_draws(Beta[n, i]) %>%
+  unite(.variable, .variable, n, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), par_values, color = "red") +
   facet_wrap(
-    ~ n,
-    nrow = 3,
+    ~ .variable,
+    nrow = data$K,
+    ncol = data$I,
     scales = "free"
-  ) +
-  geom_vline(aes(xintercept = beta), par_values, color = "red")
+  )
 
 ggsave(
   "marginals-02b.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 5, units = "in"
+  width = 10, height = 5, units = "in"
 )
 
 # # Check Stan code using brms.
