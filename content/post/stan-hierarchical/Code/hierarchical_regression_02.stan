@@ -29,6 +29,6 @@ model {
     Beta[k,] ~ normal(mu, tau);
   }
   for (n in 1:N) {
-    y[n] ~ normal(Beta[g[n],] * X[n,]', 1);
+    y[n] ~ normal(X[n,] * Beta[g[n],]', 1);
   }
 }

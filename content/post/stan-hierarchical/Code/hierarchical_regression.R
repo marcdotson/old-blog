@@ -321,29 +321,173 @@ ggsave(
   width = 10, height = 5, units = "in"
 )
 
-# # Check Stan code using brms.
-# get_prior(
-#   y ~ (1 | g),
-#   data = data,
-#   family = gaussian()
-# )
-#
-# test_data <- make_standata(
-#   y ~ (1 | g),
-#   data = data,
-#   family = gaussian(),
-#   prior = c(
-#     prior(normal(0, 5), class = Intercept),
-#     prior(cauchy(0, 2.5), class = sigma)
-#   )
-# )
-#
-# make_stancode(
-#   y ~ (1 | g),
-#   data = data,
-#   family = gaussian(),
-#   prior = c(
-#     prior(normal(0, 5), class = Intercept),
-#     prior(cauchy(0, 2.5), class = sigma)
-#   )
-# )
+# 03 Hierarchical Regression ----------------------------------------------
+# Hierarchical regression with covariates and unknown variance.
+
+N = 100
+K = 3
+I = 4
+J = 7
+g = sample(3, 100, replace = TRUE)
+
+Gamma <- matrix(runif(J * I), nrow = J)
+Z <- cbind(1, matrix(runif(K * (J-1), 0.7), nrow = K))
+Beta <- matrix(NA, nrow = K, ncol = I)
+for (k in 1:K) {
+  Beta[k,] <- Z[k,] %*% Gamma
+}
+
+X <- cbind(1, matrix(runif(N * (I-1), 0.7), nrow = N))
+y <- rep(NA, N)
+for (n in 1:N) {
+  y[n] <- rnorm(1, X[n,] %*% Beta[g[n],], 1)
+}
+
+# Specify data and hyperparameter values.
+sim_values <- list(
+  N = 100,                            # Number of individuals.
+  K = 3,                              # Number of groups.
+  I = 4,                              # Number of observation-level covariates.
+  J = 7,                              # Number of population-level covariates.
+  g = sample(3, 100, replace = TRUE), # Vector of group assignments.
+  tau = 1                             # Variance of the population model.
+)
+
+# Generate data.
+sim_data <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_03.stan"),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = "Fixed_param"
+)
+
+# Extract simulated data and group intercepts.
+sim_y <- extract(sim_data)$y
+sim_X <- extract(sim_data)$X
+sim_Z <- extract(sim_data)$Z
+sim_Beta <- extract(sim_data)$Beta
+sim_Gamma <- extract(sim_data)$Gamma
+
+# Specify data.
+data <- list(
+  N = sim_values$N,                  # Number of individuals.
+  K = sim_values$K,                  # Number of groups.
+  I = sim_values$I,                  # Number of observation-level covariates.
+  J = sim_values$J,                  # Number of population-level covariates.
+
+  # Matrix of observation-level covariates.
+  X = matrix(
+    as.vector(sim_X),
+    nrow = sim_values$N,
+    ncol = sim_values$I
+  ),
+
+  # Matrix of population-level covariates.
+  Z = matrix(
+    as.vector(sim_Z),
+    nrow = sim_values$K,
+    ncol = sim_values$J
+  ),
+
+  y = as.vector(sim_y),              # Vector of observations.
+  g = sim_values$g                   # Vector of group assignments.
+)
+
+# Calibrate the model.
+fit <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03.stan"),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)
+
+# Diagnostics.
+source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
+check_all_diagnostics(fit)
+
+# Calibrate the model with a non-centered parameterization.
+fit <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03b.stan"),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)
+
+# Diagnostics.
+source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
+check_all_diagnostics(fit)
+
+# Check trace plots.
+par_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
+for (i in 2:data$I) {
+  temp <- str_c("Beta[", 1:data$K, ",", i, "]")
+  par_string <- c(par_string, temp)
+}
+fit %>%
+  mcmc_trace(
+    pars = c("mu", "tau", par_string),
+    n_warmup = 500,
+    facet_args = list(
+      nrow = (data$I * data$K + 2) / 2,
+      ncol = 2,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-02.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 7, height = 6, units = "in"
+)
+
+# Recover hyperparameter and parameter values.
+hyperpar_values <- tibble(
+  .variable = c("mu", "tau"),
+  values = c(sim_values$mu, sim_values$tau),
+)
+
+par_values <- tibble(
+  n = sort(rep(1:(data$K), data$I)),
+  i = rep(1:(data$I), data$K),
+  .variable = str_c("Beta", "_", n, "_", i),
+  values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
+) %>%
+  select(.variable, values)
+
+fit %>%
+  gather_draws(mu, tau) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = "free"
+  ) +
+  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
+
+ggsave(
+  "marginals-02a.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 7, height = 3, units = "in"
+)
+
+fit %>%
+  gather_draws(Beta[n, i]) %>%
+  unite(.variable, .variable, n, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), par_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$K,
+    ncol = data$I,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-02b.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 10, height = 5, units = "in"
+)

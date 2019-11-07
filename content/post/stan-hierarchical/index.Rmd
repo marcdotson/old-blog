@@ -62,7 +62,7 @@ generated quantities {
 }
 ```
 
-We'll save this Stan script as `generate_data.stan`. The for loop over `y` in the `generated quantities` block emphasizes the strong assumption of this non-hierarchical model that a single mean `mu` and variance `tau` describe customer satisfaction in the population. If this doesn't sit well with you, a hierarchical model will provide the cure. We'll return to this shortly.
+We'll save this Stan script as `generate_data_00.stan`. The for loop over `y` in the `generated quantities` block emphasizes the strong assumption of this non-hierarchical model that a single mean `mu` and variance `tau` describe customer satisfaction in the population. If this doesn't sit well with you, a hierarchical model will provide the cure. We'll return to this shortly.
 
 In an R script, let's load the necessary packages, allow Stan to use as many cores as we have available, specify assumed parameter values, and generate data according to our simple regression by calling `generate_data.stan`.
 
@@ -386,7 +386,7 @@ Both the assumed hyperparameter and parameter values have been recovered by the 
 
 ## Multiple hierarchical regression
 
-In this last section, let's move from *simple* hierarchical regression to *multiple* hierarchical regression by including observation-level covariates and a matrix of `Beta` coefficients.
+In this next section, let's move from *simple* hierarchical regression to *multiple* hierarchical regression by including observation-level covariates and a matrix of `Beta` coefficients.
 
 ```{stan hierarchical-regression-02, output.var = "hierarchical_regression_02", eval = FALSE}
 // Index values, observations, and covariates.
@@ -418,7 +418,7 @@ model {
     Beta[k,] ~ normal(mu, tau);
   }
   for (n in 1:N) {
-    y[n] ~ normal(Beta[g[n],] * X[n,]', 1);
+    y[n] ~ normal(X[n,] * Beta[g[n],]', 1);
   }
 }
 ```
@@ -445,12 +445,14 @@ generated quantities {
   matrix[N, I] X;                 // Matrix of observation-level covariates.
   matrix[K, I] Beta;              // Matrix of group-level coefficients.
 
-  // Draw parameter values and generate data.
+  // Draw parameter values.
   for (k in 1:K) {
     for (i in 1:I) {
       Beta[k, i] = normal_rng(mu, tau);
     }
   }
+  
+  // Generate data, both X (including the intercept) and y.
   for (n in 1:N) {
     for (i in 1:I) {
       if (i == 1) X[n, i] = 1;
@@ -605,13 +607,68 @@ fit %>%
 
 ![](Figures/marginals-02b.png){width=1000px}
 
-The model looks good. There are a few more things we should consider:
+The model looks good! We have one more step to consider.
+
+## Hierarchical regression
+
+In this final section, let's fully embrace what it means to have a hierarchical model. With both an observational model *and* a population model, we can include both observation-level and population-level covariates. Furthermore, we have been assuming a known variance for both the observation-level and population-level models. Relaxing that assumption means another set of parameters to estimate. While there isn't a concern about having "too many parameters," since this will simply be expressed in terms of less certainty about any given parameter, we will run into issues with dimensionality.
+
+Exciting, right? Let's get started.
+
+```{stan hierarchical-regression-03, output.var = "hierarchical_regression_03", eval = FALSE}
+// PASTE.
+```
+
+In the `data` block, we now have an index `J` specifying the number of population-level covariates and an `K x J` matrix `Z` that contains those covariates (again, including an intercept). We have `Gamma` in the `parameters` block, a `J x I` matrix of population-level coefficients. The `model` block also changes, with the population model including `Z[k,] * Gamma` in place of `mu`.
+
+We can again translate this Stan script, `hierarchical_regression_03.stan`, into `data` and `generated quantities` blocks called `generate_data_03.stan` to use Stan to generate data, including `X` and `Z`, for us.
+
+```{stan generate-data-03, output.var = "generate_data_03", eval = FALSE}
+// PASTE.
+```
+
+Let's generate data by calling this Stan script from R.
+
+```{r simulation-03, eval = FALSE}
+# PASTE.
+```
+
+Let's fit the model and recover parameters.
+
+```{r model-calibration-03, eval = FALSE}
+# Specify data.
+data <- list(
+  N = sim_values$N,                  # Number of individuals.
+  K = sim_values$K,                  # Number of groups.
+  I = sim_values$I,                  # Number of observation-level covariates.
+
+  # Matrix of observation-level covariates.
+  X = matrix(
+    as.vector(sim_X),
+    nrow = sim_values$N,
+    ncol = sim_values$I
+  ),
+
+  y = as.vector(sim_y),              # Vector of observations.
+  g = sim_values$g                   # Vector of group assignments.
+)
+
+# Calibrate the model.
+fit <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02.stan"),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)
+```
+
+## Final thoughts
+
+There are a few more things we should consider:
 
 - Allowing for covariates for the population-level model.
 - Reparameterizing our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
 - Including specific output in the generated quantities block to run LOO/WAIC.
-
-## Final thoughts
 
 Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:
 

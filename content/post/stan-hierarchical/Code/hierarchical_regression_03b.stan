@@ -7,11 +7,6 @@ data {
   int<lower = 1> I;               // Number of observation-level covariates.
   int<lower = 1> J;               // Number of population-level covariates.
 
-  // real<lower=0> tau_scale;   // Scale of variance in the individual-level model.
-  // real gamma_mean;           // Mean of coefficients for the population-level model.
-  // real<lower=0> gamma_scale; // Scale of coefficients for the population-level model.
-  // real<lower=0> Sigma_scale; // Scale of covariance for the population-level model.
-
   vector[N] y;                    // Vector of observations.
   int<lower = 1, upper = K> g[N]; // Vector of group assignments.
   matrix[N, I] X;                 // Matrix of observation-level covariates.
@@ -20,16 +15,24 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  matrix[K, I] Beta;              // Matrix of observation-level coefficients.
-  // matrix[K, I] Sigma;             // Covariance matrix of the observation-level model.
+  matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+}
+
+// Parameter transformations.
+transformed parameters {
+  matrix[K, I] Beta;              // Matrix of centered observation-level coefficients.
   real<lower=0> tau;              // Variance of the population-level model.
+
+  // Transformation for the non-centered parameterization.
+  for (k in 1:K) {
+    Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
+  }
 }
 
 // Hierarchical regression.
 model {
   // Hyperpriors.
-  // Sigma ~ inv_wishart(Sigma_scale);
   for (j in 1:J) {
     Gamma[j,] ~ normal(0, 5);
   }
@@ -37,10 +40,9 @@ model {
 
   // Population model and likelihood.
   for (k in 1:K) {
-    Beta[k,] ~ normal(Z[k,] * Gamma, tau);
+    Delta[k,] ~ normal(0, 1);
   }
   for (n in 1:N) {
-    // y[n] ~ normal(Beta[g[n],] * X[n,]', Sigma);
     y[n] ~ normal(X[n,] * Beta[g[n],]', 1);
   }
 }
