@@ -17,12 +17,13 @@ data {
 parameters {
   matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  real<lower=0> tau;              // Variance of the population-level model.
 }
 
 // Parameter transformations.
 transformed parameters {
   matrix[K, I] Beta;              // Matrix of centered observation-level coefficients.
-  real<lower=0> tau;              // Variance of the population-level model.
+  // real<lower=0> tau;              // Variance of the population-level model.
 
   // Transformation for the non-centered parameterization.
   for (k in 1:K) {

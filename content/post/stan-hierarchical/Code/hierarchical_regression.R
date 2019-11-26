@@ -21,7 +21,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_00.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -324,24 +324,24 @@ ggsave(
 # 03 Hierarchical Regression ----------------------------------------------
 # Hierarchical regression with covariates and unknown variance.
 
-N = 100
-K = 3
-I = 4
-J = 7
-g = sample(3, 100, replace = TRUE)
-
-Gamma <- matrix(runif(J * I), nrow = J)
-Z <- cbind(1, matrix(runif(K * (J-1), 0.7), nrow = K))
-Beta <- matrix(NA, nrow = K, ncol = I)
-for (k in 1:K) {
-  Beta[k,] <- Z[k,] %*% Gamma
-}
-
-X <- cbind(1, matrix(runif(N * (I-1), 0.7), nrow = N))
-y <- rep(NA, N)
-for (n in 1:N) {
-  y[n] <- rnorm(1, X[n,] %*% Beta[g[n],], 1)
-}
+# N = 100
+# K = 3
+# I = 4
+# J = 7
+# g = sample(3, 100, replace = TRUE)
+#
+# Gamma <- matrix(runif(J * I), nrow = J)
+# Z <- cbind(1, matrix(runif(K * (J-1), 0.7), nrow = K))
+# Beta <- matrix(NA, nrow = K, ncol = I)
+# for (k in 1:K) {
+#   Beta[k,] <- Z[k,] %*% Gamma
+# }
+#
+# X <- cbind(1, matrix(runif(N * (I-1), 0.7), nrow = N))
+# y <- rep(NA, N)
+# for (n in 1:N) {
+#   y[n] <- rnorm(1, X[n,] %*% Beta[g[n],], 1)
+# }
 
 # Specify data and hyperparameter values.
 sim_values <- list(
@@ -399,6 +399,7 @@ data <- list(
 fit <- stan(
   file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03.stan"),
   data = data,
+  iter = 4000,
   control = list(adapt_delta = 0.99),
   seed = 42
 )
@@ -407,48 +408,76 @@ fit <- stan(
 source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
 check_all_diagnostics(fit)
 
-# Calibrate the model with a non-centered parameterization.
-fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03b.stan"),
-  data = data,
-  control = list(adapt_delta = 0.99),
-  seed = 42
-)
-
-# Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
-check_all_diagnostics(fit)
+# # Calibrate the model with a non-centered parameterization.
+# fit <- stan(
+#   file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03b.stan"),
+#   data = data,
+#   control = list(adapt_delta = 0.99),
+#   seed = 42
+# )
+#
+# # Diagnostics.
+# source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
+# check_all_diagnostics(fit)
 
 # Check trace plots.
-par_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
+gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
+beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
 for (i in 2:data$I) {
-  temp <- str_c("Beta[", 1:data$K, ",", i, "]")
-  par_string <- c(par_string, temp)
+  gamma_temp <- str_c("Gamma[", 1:data$J, ",", i, "]")
+  beta_temp <- str_c("Beta[", 1:data$K, ",", i, "]")
+  gamma_string <- c(gamma_string, gamma_temp)
+  beta_string <- c(beta_string, beta_temp)
 }
 fit %>%
   mcmc_trace(
-    pars = c("mu", "tau", par_string),
+    pars = c(gamma_string, "tau", beta_string),
     n_warmup = 500,
     facet_args = list(
-      nrow = (data$I * data$K + 2) / 2,
-      ncol = 2,
+      nrow = round((data$I * data$K + data$J * data$I + 1) / 3),
+      ncol = 3,
       labeller = label_parsed
     )
   )
 
 ggsave(
-  "mcmc_trace-02.png",
+  "mcmc_trace-03.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 6, units = "in"
+  width = 8, height = 12, units = "in"
 )
 
-# Recover hyperparameter and parameter values.
-hyperpar_values <- tibble(
-  .variable = c("mu", "tau"),
-  values = c(sim_values$mu, sim_values$tau),
+# Recover Gamma values.
+gamma_values <- tibble(
+  j = sort(rep(1:(data$J), data$I)),
+  i = rep(1:(data$I), data$J),
+  .variable = str_c("Gamma", "_", j, "_", i),
+  values = as.vector(t(matrix(sim_Gamma, ncol = data$I)))
+) %>%
+  select(.variable, values)
+
+fit %>%
+  gather_draws(Gamma[j, i]) %>%
+  unite(.variable, .variable, j, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), gamma_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$J,
+    ncol = data$I,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-03a.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 7, height = 3, units = "in"
 )
 
-par_values <- tibble(
+# Recover Sigma values.
+
+# Recover Beta values.
+beta_values <- tibble(
   n = sort(rep(1:(data$K), data$I)),
   i = rep(1:(data$I), data$K),
   .variable = str_c("Beta", "_", n, "_", i),
@@ -457,28 +486,11 @@ par_values <- tibble(
   select(.variable, values)
 
 fit %>%
-  gather_draws(mu, tau) %>%
-  ggplot(aes(x = .value, y = .variable)) +
-  geom_halfeyeh(.width = .95) +
-  facet_wrap(
-    ~ .variable,
-    nrow = 2,
-    scales = "free"
-  ) +
-  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
-
-ggsave(
-  "marginals-02a.png",
-  path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 3, units = "in"
-)
-
-fit %>%
   gather_draws(Beta[n, i]) %>%
   unite(.variable, .variable, n, i) %>%
   ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
-  geom_vline(aes(xintercept = values), par_values, color = "red") +
+  geom_vline(aes(xintercept = values), beta_values, color = "red") +
   facet_wrap(
     ~ .variable,
     nrow = data$K,
@@ -487,7 +499,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-02b.png",
+  "marginals-03c.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 10, height = 5, units = "in"
 )

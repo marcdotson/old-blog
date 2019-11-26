@@ -636,31 +636,10 @@ Let's generate data by calling this Stan script from R.
 Let's fit the model and recover parameters.
 
 ```{r model-calibration-03, eval = FALSE}
-# Specify data.
-data <- list(
-  N = sim_values$N,                  # Number of individuals.
-  K = sim_values$K,                  # Number of groups.
-  I = sim_values$I,                  # Number of observation-level covariates.
-
-  # Matrix of observation-level covariates.
-  X = matrix(
-    as.vector(sim_X),
-    nrow = sim_values$N,
-    ncol = sim_values$I
-  ),
-
-  y = as.vector(sim_y),              # Vector of observations.
-  g = sim_values$g                   # Vector of group assignments.
-)
-
-# Calibrate the model.
-fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02.stan"),
-  data = data,
-  control = list(adapt_delta = 0.99),
-  seed = 42
-)
+# PASTE.
 ```
+
+Note that we again have `adapt_delta = 0.99`. I've also increased the number of iterations `iter = 4000`, double the default amount and half of which will be used for warmup.
 
 ## Final thoughts
 
