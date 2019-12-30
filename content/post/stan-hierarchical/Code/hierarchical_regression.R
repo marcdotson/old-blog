@@ -10,13 +10,13 @@ library(tidybayes)
 options(mc.cores = parallel::detectCores())
 
 # 00 Simple Regression ----------------------------------------------------
-# Simple (non-hierarchical) regression with no covariates and known variance.
+# Simple, non-hierarchical regression with no covariates and unknown variance.
 
 # Specify data and parameter values.
 sim_values <- list(
-  N = 100,                            # Number of observations.
-  mu = 5,                             # Mean of the regression.
-  tau = 1                             # Variance of the regression.
+  N = 100, # Number of observations.
+  mu = 5,  # Mean of the regression.
+  tau = 1  # Variance of the regression.
 )
 
 # Generate data.
@@ -34,8 +34,8 @@ sim_y <- extract(sim_data)$y
 
 # Specify data.
 data <- list(
-  N = length(sim_y),                 # Number of individuals.
-  y = as.vector(sim_y)               # Vector of observations.
+  N = length(sim_y),   # Number of observations.
+  y = as.vector(sim_y) # Vector of observations.
 )
 
 # Calibrate the model.
@@ -44,10 +44,6 @@ fit <- stan(
   data = data,
   seed = 42
 )
-
-# Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
-check_all_diagnostics(fit)
 
 # Check trace plots.
 fit %>%
@@ -73,12 +69,12 @@ fit %>%
   gather_draws(mu, tau) %>%
   ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), par_values, color = "red") +
   facet_wrap(
     ~ .variable,
     nrow = 2,
     scales = "free"
-  ) +
-  geom_vline(aes(xintercept = values), par_values, color = "red")
+  )
 
 ggsave(
   "marginals.png",
@@ -408,17 +404,17 @@ fit <- stan(
 source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
 check_all_diagnostics(fit)
 
-# # Calibrate the model with a non-centered parameterization.
-# fit <- stan(
-#   file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03b.stan"),
-#   data = data,
-#   control = list(adapt_delta = 0.99),
-#   seed = 42
-# )
-#
-# # Diagnostics.
-# source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
-# check_all_diagnostics(fit)
+# Calibrate the model with a non-centered parameterization.
+fit <- stan(
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03b.stan"),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)
+
+# Diagnostics.
+source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
+check_all_diagnostics(fit)
 
 # Check trace plots.
 gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")

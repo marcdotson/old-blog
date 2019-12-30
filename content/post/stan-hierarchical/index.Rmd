@@ -1,25 +1,25 @@
 ---
 title: "Hierarchical models in Stan"
 author: "Marc Dotson"
-date: '2019-10-24'
+date: '2019-12-30'
 slug: stan-hierarchical
 ---
 
-Bayesian inference provides an intuitive and self-consistent approach to [statistical modeling](https://betanalpha.github.io/assets/case_studies/modeling_and_inference.html). In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition -- it's been the [required computation](https://arxiv.org/abs/1701.02434). There has been a great deal of progress on this front, with [Stan](https://mc-stan.org) arguably providing the best modern solution.
+Bayesian inference provides an intuitive and self-consistent approach to statistical modeling. In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition -- it's been the required computation. There has been a great deal of progress on this front, with [Stan](https://mc-stan.org) arguably providing the best modern solution.
 
-Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by focusing on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.
+Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by focusing solely on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.
 
-The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a [tidy approach](https://www.tidyverse.org) whenever appropriate. This post does not provide an introduction to Bayesian inference in Stan. For that, I recommend Michael Betancourt's [case studies](https://betanalpha.github.io/writing/), [Probabilistic Modeling and Statistical Inference](https://betanalpha.github.io/assets/case_studies/modeling_and_inference.html) in particular, and Richard McElreath's [*Statistical Rethinking*](https://github.com/rmcelreath/statrethinking_winter2019). Much of what follows is motivated by their work as well as Ben Goodrich's StanCon 2019 tutorial.
+The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a [tidy approach](https://www.tidyverse.org) whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Richard McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/), Michael Betancourt's [case studies](https://betanalpha.github.io/writing/), and the [Stan User's Guide](https://mc-stan.org/docs/2_21/stan-users-guide/index.html). Much of what follows is motivated by Richard and Michael's work as well as Ben Goodrich's [StanCon 2019](https://mc-stan.org/events/stancon2019Cambridge/) tutorial.
 
 ## Simple regression
 
-Let's start with a simple (non-hierarchical) regression. In a Stan script, which [has native support in RStudio](https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/), we specify the three required blocks for a Stan model: `data`, `parameters`, and `model` (i.e., the prior and the likelihood).
+By way of introduction, let's start with a simple, non-hierarchical regression. In a Stan script, which [has native support in RStudio](https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/), we specify the three required blocks for a Stan model: `data`, `parameters`, and `model` (i.e., the prior and the likelihood).
 
 ```{stan regression, output.var = "regression", eval = FALSE}
 // Index value and observations.
 data {
-  int<lower=1> N;  // Number of individuals.
-  vector[N] y;     // Vector of observations.
+  int<lower = 1> N;  // Number of observations.
+  vector[N] y;       // Vector of observations.
 }
 
 // Parameters.
@@ -28,7 +28,7 @@ parameters {
   real<lower=0> tau; // Variance of the regression.
 }
 
-// Simple regression.
+// Regression.
 model {
   // Priors.
   mu ~ normal(0, 5);
@@ -39,7 +39,7 @@ model {
 }
 ```
 
-We'll save this Stan script as `regression.stan`. Imagine this is a model of customer satisfaction where we have `N` individuals, a vector of overall satisfaction `y` with a single observation from each individual, and we are assuming that satisfaction `y` is distributed `normal`, with a single mean `mu` and variance `tau` to describe customer satisfaction in the population. Finally, our joint model is complete with a `normal` prior on `mu` and a `cauchy` prior on `tau`.
+We'll save this Stan script as `regression.stan`. Imagine this is a model of customer satisfaction where we have `N` individuals, a vector of satisfaction scores `y` with a single observation from each individual, and we are assuming that satisfaction `y` is distributed `normal`, with a single mean `mu` and variance `tau` to describe customer satisfaction in the population. Finally, our joint model is complete with a `normal` prior on `mu` and a `cauchy` prior on `tau`.
 
 Like all Bayesian models, this model is generative, so we can also use Stan to generate data according to some assumed parameter values and then use the generated data to test the model, including demonstrating parameter recovery. To do this, we reorganize these three blocks into `data` (which now includes the assumed parameter values as data) and `generated quantities` blocks (which now includes the observations that will be generated).
 
@@ -62,9 +62,9 @@ generated quantities {
 }
 ```
 
-We'll save this Stan script as `generate_data_00.stan`. The for loop over `y` in the `generated quantities` block emphasizes the strong assumption of this non-hierarchical model that a single mean `mu` and variance `tau` describe customer satisfaction in the population. If this doesn't sit well with you, a hierarchical model will provide the cure. We'll return to this shortly.
+We'll save this Stan script as `generate_data_00.stan`. The for loop over `y` in the `generated quantities` block emphasizes the strong assumption of this non-hierarchical model that a single mean `mu` and variance `tau` describe customer satisfaction for the entire population. If this doesn't sit well with you, a hierarchical model will provide the cure. We'll get there shortly.
 
-In an R script, let's load the necessary packages, allow Stan to use as many cores as we have available, specify assumed parameter values, and generate data according to our simple regression by calling `generate_data.stan`.
+In an R script, let's load the necessary packages, allow Stan to use as many cores as we have available, allow for Stan to save compiled code, specify assumed parameter values, and generate data according to our simple regression by calling `generate_data.stan`.
 
 ```{r simulation-00, eval = FALSE}
 # Load packages.
@@ -75,6 +75,7 @@ library(tidybayes)
 
 # Set Stan options.
 options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 
 # Specify data and parameter values.
 sim_values <- list(
@@ -92,17 +93,31 @@ sim_data <- stan(
   seed = 42,
   algorithm = "Fixed_param"
 )
+```
 
+```
+SAMPLING FOR MODEL 'generate_data_00' NOW (CHAIN 1).
+Chain 1: Iteration: 1 / 1 [100%]  (Sampling)
+Chain 1: 
+Chain 1:  Elapsed Time: 0 seconds (Warm-up)
+Chain 1:                0.000127 seconds (Sampling)
+Chain 1:                0.000127 seconds (Total)
+Chain 1: 
+```
+
+Stan provides verbose output noting progress as well as any warnings. Everything looks fine here, so we can go ahead and extract our simulated data.
+
+```{r simulation-00-cont, eval = FALSE}
 # Extract simulated data.
 sim_y <- extract(sim_data)$y
 ```
 
-To test our model, we simply specify the generated data as a list of data to be used as an input, call the regression model `regression.stan` from R, and Stan does all the heavy lifting for us.
+To test our model, we simply specify the simulated data as a list of data to be used as an input, call the regression model `regression.stan` from R, and Stan does all the heavy lifting for us.
 
 ```{r model-calibration-00, eval = FALSE}
 # Specify data.
 data <- list(
-  N = length(sim_y),   # Number of individuals.
+  N = length(sim_y),   # Number of observations.
   y = as.vector(sim_y) # Vector of observations.
 )
 
@@ -114,25 +129,35 @@ fit <- stan(
 )
 ```
 
-Stan takes the three required blocks in `regression.stan` and creates a Hamiltonian Monte Carlo sampler to produce draws from the posterior.
+```
+...
 
-Once the model has finished running, we can check diagnostics (here using a helper function `stan_utility`, though the diagnostic checks can all be done separately), including checking for divergences, a powerful indicator of problems with the sampler that is unique to Hamiltonian Monte Carlo.
-
-```{r diagnostics-00, eval = FALSE}
-# Diagnostics.
-source(here::here("Code", "stan_utility.R"))
-check_all_diagnostics(fit)
+SAMPLING FOR MODEL 'regression' NOW (CHAIN 4).
+Chain 4: Gradient evaluation took 1.2e-05 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.12 seconds.
+Chain 4: Adjust your expectations accordingly!
+Chain 4: 
+Chain 4: 
+Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
+Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
+Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
+Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
+Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
+Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
+Chain 4: Chain Iteration: 1001 / 2000 [ 50%]  (Sampling)
+Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
+Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
+Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
+Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
+Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 0.031208 seconds (Warm-up)
+Chain 4:                0.024732 seconds (Sampling)
+Chain 4:                0.05594 seconds (Total)
+Chain 4: 
 ```
 
-```
-[1] "n_eff / iter looks reasonable for all parameters"
-[1] "Rhat looks reasonable for all parameters"
-[1] "0 of 4000 iterations ended with a divergence (0%)"
-[1] "0 of 4000 iterations saturated the maximum tree depth of 10 (0%)"
-[1] "E-FMI indicated no pathological behavior"
-```
-
-The diagnostics check out! If we'd like, we can also check the trace plots.
+Stan takes the three required blocks in `regression.stan` and creates a Hamiltonian Monte Carlo sampler to produce draws from the posterior. The output tracks progress across many iterations (2000 by default) and chains (4 by default), along with any problems. Here we have included printed for the fourth chain only and no problems have been identified. We can also check the trace plots.
 
 ```{r trace-plots-00, eval = FALSE}
 # Check trace plots.
@@ -146,9 +171,9 @@ fit %>%
 
 ![](Figures/mcmc_trace-00.png){width=1000px}
 
-This aligns with what was suggested by the `Rhat` diagnostic: We have good mixing and clear convergence across all chains for both of our model parameters.
+We have good mixing and clear convergence across all chains for both of our model parameters.
 
-Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within the 95% credible intervals.
+Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within reasonable, typically 95%, credible intervals.
 
 ```{r marginals-00, eval = FALSE}
 # Recover parameter values.
@@ -161,21 +186,17 @@ fit %>%
   gather_draws(mu, tau) %>%
   ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), par_values, color = "red") +
   facet_wrap(
     ~ .variable,
     nrow = 2,
     scales = "free"
-  ) +
-  geom_vline(
-    aes(xintercept = values), 
-    par_values, 
-    color = "red"
   )
 ```
 
 ![](Figures/marginals-00.png){width=1000px}
 
-The assumed parameter values (in red) have been recovered by the model (they are contained within the customery 95% credible interval)! In summary, we've specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.
+The assumed parameter values (in red) have been recovered by the model (they are contained within the customary 95% credible interval)! In summary, we've specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended. Now let's move on to a hierarchical model.
 
 ## Simple hierarchical regression
 
@@ -536,6 +557,7 @@ check_all_diagnostics(fit)
 [1] "0 of 4000 iterations saturated the maximum tree depth of 10 (0%)"
 [1] "E-FMI indicated no pathological behavior"
 ```
+
 Everything looks good! Let's look at our expanded trace plots.
 
 ```{r trace-plots-02, eval = FALSE}
@@ -641,12 +663,29 @@ Let's fit the model and recover parameters.
 
 Note that we again have `adapt_delta = 0.99`. I've also increased the number of iterations `iter = 4000`, double the default amount and half of which will be used for warmup.
 
+```{r diagnostics-02, eval = FALSE}
+# PASTE.
+```
+
+```
+[1] "n_eff / iter looks reasonable for all parameters"
+[1] "Rhat looks reasonable for all parameters"
+[1] "54 of 8000 iterations ended with a divergence (0.675%)"
+[1] "  Try running with larger adapt_delta to remove the divergences"
+[1] "0 of 8000 iterations saturated the maximum tree depth of 10 (0%)"
+[1] "E-FMI indicated no pathological behavior"
+```
+
+Divergent transitions? Reparameterizing our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
+
+```{stan hierarchical-regression-03b, output.var = "hierarchical_regression_03", eval = FALSE}
+// PASTE.
+```
+
 ## Final thoughts
 
 There are a few more things we should consider:
 
-- Allowing for covariates for the population-level model.
-- Reparameterizing our hierarchical model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
 - Including specific output in the generated quantities block to run LOO/WAIC.
 
 Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:

@@ -2,14 +2,14 @@
 
 // Index value and observations.
 data {
-  int<lower = 1> N;       // Number of individuals.
-  vector[N] y;            // Vector of observations.
+  int<lower = 1> N;  // Number of observations.
+  vector[N] y;       // Vector of observations.
 }
 
 // Parameters.
 parameters {
-  real mu;                // Mean of the regression.
-  real<lower=0> tau;      // Variance of the regression.
+  real mu;           // Mean of the regression.
+  real<lower=0> tau; // Variance of the regression.
 }
 
 // Regression.
