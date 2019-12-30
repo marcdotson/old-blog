@@ -1,7 +1,6 @@
 # Preamble ----------------------------------------------------------------
 # Load packages.
 library(tidyverse)
-library(brms)
 library(rstan)
 library(bayesplot)
 library(tidybayes)
@@ -10,8 +9,6 @@ library(tidybayes)
 options(mc.cores = parallel::detectCores())
 
 # 00 Simple Regression ----------------------------------------------------
-# Simple, non-hierarchical regression with no covariates and unknown variance.
-
 # Specify data and parameter values.
 sim_values <- list(
   N = 100, # Number of observations.
@@ -54,7 +51,7 @@ fit %>%
   )
 
 ggsave(
-  "mcmc_trace.png",
+  "mcmc_trace-00.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
@@ -77,21 +74,20 @@ fit %>%
   )
 
 ggsave(
-  "marginals.png",
+  "marginals-00.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
 
 # 01 Simple Hierarchical Regression ---------------------------------------
-# Hierarchical regression with no covariates and known variance.
-
 # Specify data and hyperparameter values.
 sim_values <- list(
-  N = 100,                            # Number of individuals.
+  N = 100,                            # Number of observations.
   K = 3,                              # Number of groups.
   g = sample(3, 100, replace = TRUE), # Vector of group assignments.
   mu = 5,                             # Mean of the population model.
-  tau = 1                             # Variance of the population model.
+  tau = 1,                            # Variance of the population model.
+  sigma = 1                           # Variance of the likelihood.
 )
 
 # Generate data.
@@ -110,10 +106,10 @@ sim_beta <- extract(sim_data)$beta
 
 # Specify data.
 data <- list(
-  N = length(sim_y),                 # Number of individuals.
-  K = sim_values$K,                  # Number of groups.
-  y = as.vector(sim_y),              # Vector of observations.
-  g = sim_values$g                   # Vector of group assignments.
+  N = length(sim_y),    # Number of observations.
+  K = sim_values$K,     # Number of groups.
+  y = as.vector(sim_y), # Vector of observations.
+  g = sim_values$g      # Vector of group assignments.
 )
 
 # Calibrate the model.
@@ -124,14 +120,10 @@ fit <- stan(
   seed = 42
 )
 
-# Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
-check_all_diagnostics(fit)
-
 # Check trace plots.
 fit %>%
   mcmc_trace(
-    pars = c("mu", "tau", str_c("beta[", 1:data$K, "]")),
+    pars = c("mu", "tau", str_c("beta[", 1:data$K, "]"), "sigma"),
     n_warmup = 500,
     facet_args = list(nrow = 5, labeller = label_parsed)
   )
@@ -139,57 +131,55 @@ fit %>%
 ggsave(
   "mcmc_trace-01.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 6, units = "in"
+  width = 7, height = 4, units = "in"
 )
 
 # Recover hyperparameter and parameter values.
-hyperpar_values <- tibble(
-  .variable = c("mu", "tau"),
-  values = c(sim_values$mu, sim_values$tau),
+hyper_par_values <- tibble(
+  .variable = c("mu", "tau", "sigma"),
+  values = c(sim_values$mu, sim_values$tau, sim_values$sigma),
 )
 
-par_values <- tibble(
+beta_values <- tibble(
   n = 1:data$K,
   beta = as.vector(sim_beta)
 )
 
 fit %>%
-  gather_draws(mu, tau) %>%
+  gather_draws(mu, tau, sigma) %>%
   ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), hyper_par_values, color = "red") +
   facet_wrap(
     ~ .variable,
-    nrow = 2,
+    nrow = 3,
     scales = "free"
-  ) +
-  geom_vline(aes(xintercept = values), hyperpar_values, color = "red")
+  )
 
 ggsave(
   "marginals-01a.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 3, units = "in"
+  width = 7, height = 4, units = "in"
 )
 
 fit %>%
   spread_draws(beta[n]) %>%
   ggplot(aes(x = beta, y = n)) +
   geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = beta), beta_values, color = "red") +
   facet_wrap(
     ~ n,
     nrow = 3,
     scales = "free"
-  ) +
-  geom_vline(aes(xintercept = beta), par_values, color = "red")
+  )
 
 ggsave(
   "marginals-01b.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 5, units = "in"
+  width = 7, height = 4, units = "in"
 )
 
 # 02 Multiple Hierarchical Regression -------------------------------------
-# Hierarchical regression with covariates and known variance.
-
 # Specify data and hyperparameter values.
 sim_values <- list(
   N = 100,                            # Number of individuals.
