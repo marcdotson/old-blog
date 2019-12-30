@@ -1,5 +1,3 @@
-// Simple hierarchical regression.
-
 // Index values and observations.
 data {
   int<lower = 1> N;               // Number of observations.
@@ -12,8 +10,8 @@ data {
 parameters {
   vector[K] beta;                 // Vector of group intercepts.
   real mu;                        // Mean of the population model.
-  real<lower=0> tau;              // Variance of the population model.
-  real<lower=0> sigma;            // Variance of the likelihood.
+  real<lower = 0> tau;            // Variance of the population model.
+  real<lower = 0> sigma;          // Variance of the likelihood.
 }
 
 // Hierarchical regression.
