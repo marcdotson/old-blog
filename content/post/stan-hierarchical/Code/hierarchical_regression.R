@@ -216,60 +216,38 @@ sim_data <- stan(
 
 # Extract simulated data and group intercepts.
 sim_y <- extract(sim_data)$y
-sim_X <- extract(sim_data)$X
-sim_Z <- extract(sim_data)$Z
-sim_Beta <- extract(sim_data)$Beta
 sim_Gamma <- extract(sim_data)$Gamma
+sim_Beta <- extract(sim_data)$Beta
 
 # Specify data.
 data <- list(
-  N = sim_values$N,                  # Number of individuals.
-  K = sim_values$K,                  # Number of groups.
-  I = sim_values$I,                  # Number of observation-level covariates.
-  J = sim_values$J,                  # Number of population-level covariates.
-
-  # Matrix of observation-level covariates.
-  X = matrix(
-    as.vector(sim_X),
-    nrow = sim_values$N,
-    ncol = sim_values$I
-  ),
-
-  # Matrix of population-level covariates.
-  Z = matrix(
-    as.vector(sim_Z),
-    nrow = sim_values$K,
-    ncol = sim_values$J
-  ),
-
-  y = as.vector(sim_y),              # Vector of observations.
-  g = sim_values$g                   # Vector of group assignments.
+  N = sim_values$N,     # Number of observations.
+  K = sim_values$K,     # Number of groups.
+  I = sim_values$I,     # Number of observation-level covariates.
+  J = sim_values$J,     # Number of population-level covariates.
+  y = as.vector(sim_y), # Vector of observations.
+  g = sim_values$g,     # Vector of group assignments.
+  X = sim_values$X,     # Matrix of observation-level covariates.
+  Z = sim_values$Z      # Matrix of population-level covariates.
 )
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02.stan"),
   data = data,
-  iter = 4000,
   control = list(adapt_delta = 0.99),
   seed = 42
 )
-
-# Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
-check_all_diagnostics(fit)
 
 # Calibrate the model with a non-centered parameterization.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_03b.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02b.stan"),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42
 )
 
-# Diagnostics.
-source(here::here("content", "post", "stan-hierarchical", "Code", "stan_utility.R"))
-check_all_diagnostics(fit)
+#### ADD SIGMA
 
 # Check trace plots.
 gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
@@ -282,7 +260,7 @@ for (i in 2:data$I) {
 }
 fit %>%
   mcmc_trace(
-    pars = c(gamma_string, "tau", beta_string),
+    pars = c(gamma_string, "tau", beta_string, "sigma"),
     n_warmup = 500,
     facet_args = list(
       nrow = round((data$I * data$K + data$J * data$I + 1) / 3),
@@ -292,7 +270,7 @@ fit %>%
   )
 
 ggsave(
-  "mcmc_trace-03.png",
+  "mcmc_trace-02.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 8, height = 12, units = "in"
 )
@@ -320,7 +298,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-03a.png",
+  "marginals-02a.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
@@ -350,7 +328,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-03c.png",
+  "marginals-02c.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 10, height = 5, units = "in"
 )

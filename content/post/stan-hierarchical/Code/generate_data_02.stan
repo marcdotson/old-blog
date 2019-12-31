@@ -15,8 +15,8 @@ data {
 // Generate data according to the hierarchical regression.
 generated quantities {
   vector[N] y;                    // Vector of observations.
-  matrix[K, I] Beta;              // Matrix of group-level coefficients.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  matrix[K, I] Beta;              // Matrix of group-level coefficients.
 
   // Draw parameter values and generate data.
   for (j in 1:J) {
@@ -30,7 +30,6 @@ generated quantities {
     }
   }
   for (n in 1:N) {
-    // y[n] = normal_rng(Beta[g[n],] * X[n,]', sigma);
-    y[n] = normal_rng(X[n,] * Beta[g[n],], sigma);
+    y[n] = normal_rng(X[n,] * Beta[g[n],]', sigma);
   }
 }

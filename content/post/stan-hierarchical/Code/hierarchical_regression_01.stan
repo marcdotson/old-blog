@@ -8,9 +8,9 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  vector[K] beta;                 // Vector of group intercepts.
   real mu;                        // Mean of the population model.
   real<lower = 0> tau;            // Variance of the population model.
+  vector[K] beta;                 // Vector of group intercepts.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
 

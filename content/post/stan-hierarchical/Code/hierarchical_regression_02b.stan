@@ -1,8 +1,6 @@
-// Hierarchical regression with covariates and unknown variance.
-
-// Index values, observations, covariates, and hyperprior values.
+// Index values, observations, and covariates.
 data {
-  int<lower = 1> N;               // Number of individuals.
+  int<lower = 1> N;               // Number of observations.
   int<lower = 1> K;               // Number of groups.
   int<lower = 1> I;               // Number of observation-level covariates.
   int<lower = 1> J;               // Number of population-level covariates.
@@ -15,17 +13,18 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  real<lower=0> tau;              // Variance of the population-level model.
+  real<lower = 0> tau;            // Variance of the population model.
+  matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
+  real<lower = 0> sigma;          // Variance of the likelihood.
 }
 
-// Parameter transformations.
+// Deterministic transformation.
 transformed parameters {
-  matrix[K, I] Beta;              // Matrix of centered observation-level coefficients.
-  // real<lower=0> tau;              // Variance of the population-level model.
+  // Matrix of centered observation-level coefficients.
+  matrix[K, I] Beta;
 
-  // Transformation for the non-centered parameterization.
+  // Non-centered parameterization.
   for (k in 1:K) {
     Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
   }
@@ -39,12 +38,14 @@ model {
   }
   tau ~ cauchy(0, 2.5);
 
-  // Population model and likelihood.
+  // Prior.
+  sigma ~ cauchy(0, 2.5);
+
+  // Non-centered population model and likelihood.
   for (k in 1:K) {
     Delta[k,] ~ normal(0, 1);
   }
   for (n in 1:N) {
-    y[n] ~ normal(X[n,] * Beta[g[n],]', 1);
+    y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);
   }
 }
-

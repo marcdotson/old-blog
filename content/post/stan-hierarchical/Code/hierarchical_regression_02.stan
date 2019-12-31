@@ -13,9 +13,9 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
   real<lower = 0> tau;            // Variance of the population model.
+  matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
 
