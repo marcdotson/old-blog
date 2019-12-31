@@ -173,7 +173,7 @@ fit %>%
 
 We have good mixing and clear convergence across all chains for both of our model parameters.
 
-Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within reasonable, typically 95%, credible intervals.
+Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within or near reasonable credible intervals.
 
 ```{r marginals-00, eval=FALSE}
 # Recover parameter values.
@@ -196,7 +196,7 @@ fit %>%
 
 ![](Figures/marginals-00.png){width=1000px}
 
-The assumed parameter values (in red) have been recovered by the model (they are contained within the customary 95% credible interval)! In summary, we've specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.
+The assumed parameter values (in red) have been recovered by the model (they are in or nearly within a customary 95% credible interval)! In summary, we've specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.
 
 ## Simple hierarchical regression
 
@@ -215,9 +215,9 @@ data {
 
 // Parameters and hyperparameters.
 parameters {
-  vector[K] beta;                 // Vector of group intercepts.
   real mu;                        // Mean of the population model.
   real<lower = 0> tau;            // Variance of the population model.
+  vector[K] beta;                 // Vector of group intercepts.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
 
@@ -225,10 +225,10 @@ parameters {
 model {
   // Hyperpriors.
   mu ~ normal(0, 5);
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Prior.
-  sigma ~ cauchy(0, 2.5);
+  sigma ~ normal(0, 5);
 
   // Population model and likelihood.
   beta ~ normal(mu, tau);
@@ -240,7 +240,7 @@ model {
 
 In the `data` block, we now have a vector `g` indicating which one of `K` groups each of our `N` individuals belong to. In the `parameter` block, we now have a `K`-dimensional vector of `beta` parameters, a separate mean for each of the `K` of groups. In the `model` block we can see that the likelihood (now within a for loop) is still assumed `normal`, but now each individual's observed overall satisfaction has a mean of `beta` specific to the group they belong to. We also have a population model `beta ~ normal(mu, tau)` that says these separate, group-level `beta` coefficients are themselves drawn from a population that is assumed `normal` with a mean `mu` and variance `tau`.
 
-This is what is meant by a hierarchy: there are two levels to our model, the lower-level likelihood and the upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are priors on a prior): a `normal` hyperprior on `mu` and a `cauchy` hyperprior on `tau`. Note that we are not assuming a hierarchy to the likelihood variance, now called `sigma`, so it retains the same prior.
+This is what is meant by a hierarchy: there are two levels to our model, the lower-level likelihood and the upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are priors on a prior): `normal` hyperpriors on `mu` and `tau` (constrained to be positive). Note that we are not assuming a hierarchy to the likelihood variance, now called `sigma`, so it retains the same prior and positive constraint.
 
 We can again translate this Stan script, `hierarchical_regression_01.stan`, into `data` and `generated quantities` blocks called `generate_data_01.stan` to use Stan to generate data for us.
 
@@ -275,9 +275,9 @@ Note that the `data` block now includes the assumed parameter values for the *hy
 ```{r simulation-01, eval=FALSE}
 # Specify data and hyperparameter values.
 sim_values <- list(
-  N = 100,                            # Number of observations.
-  K = 3,                              # Number of groups.
-  g = sample(3, 100, replace = TRUE), # Vector of group assignments.
+  N = 500,                            # Number of observations.
+  K = 5,                              # Number of groups.
+  g = sample(5, 500, replace = TRUE), # Vector of group assignments.
   mu = 5,                             # Mean of the population model.
   tau = 1,                            # Variance of the population model.
   sigma = 1                           # Variance of the likelihood.

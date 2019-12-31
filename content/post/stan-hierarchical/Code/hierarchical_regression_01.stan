@@ -18,10 +18,10 @@ parameters {
 model {
   // Hyperpriors.
   mu ~ normal(0, 5);
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Prior.
-  sigma ~ cauchy(0, 2.5);
+  sigma ~ normal(0, 5);
 
   // Population model and likelihood.
   beta ~ normal(mu, tau);

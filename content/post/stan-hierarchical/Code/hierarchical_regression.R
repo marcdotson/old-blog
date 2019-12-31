@@ -82,9 +82,9 @@ ggsave(
 # 01 Simple Hierarchical Regression ---------------------------------------
 # Specify data and hyperparameter values.
 sim_values <- list(
-  N = 100,                            # Number of observations.
-  K = 3,                              # Number of groups.
-  g = sample(3, 100, replace = TRUE), # Vector of group assignments.
+  N = 500,                            # Number of observations.
+  K = 5,                              # Number of groups.
+  g = sample(5, 500, replace = TRUE), # Vector of group assignments.
   mu = 5,                             # Mean of the population model.
   tau = 1,                            # Variance of the population model.
   sigma = 1                           # Variance of the likelihood.
@@ -131,7 +131,7 @@ fit %>%
 ggsave(
   "mcmc_trace-01.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 4, units = "in"
+  width = 7, height = 5, units = "in"
 )
 
 # Recover hyperparameter and parameter values.
