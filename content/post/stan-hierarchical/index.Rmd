@@ -1,7 +1,7 @@
 ---
 title: "Hierarchical models in Stan"
 author: "Marc Dotson"
-date: '2019-12-29'
+date: '2019-12-31'
 slug: stan-hierarchical
 ---
 
@@ -9,7 +9,7 @@ Bayesian inference provides an intuitive and self-consistent approach to statist
 
 Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by focusing solely on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.
 
-The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a [tidy approach](https://www.tidyverse.org) whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Richard McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/), Michael Betancourt's [case studies](https://betanalpha.github.io/writing/), and the [Stan User's Guide](https://mc-stan.org/docs/2_21/stan-users-guide/index.html). Much of what follows is motivated by Richard and Michael's work as well as Ben Goodrich's [StanCon 2019](https://mc-stan.org/events/stancon2019Cambridge/) tutorial.
+The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a [tidy approach](https://www.tidyverse.org) whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Michael Betancourt's [case studies](https://betanalpha.github.io/writing/), Richard McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/), and the [Stan User's Guide](https://mc-stan.org/docs/2_21/stan-users-guide/index.html). Much of what follows is motivated by Michael and Richard's work as well as Ben Goodrich's [StanCon 2019](https://mc-stan.org/events/stancon2019Cambridge/) tutorial.
 
 ## Simple regression
 
@@ -32,14 +32,14 @@ parameters {
 model {
   // Priors.
   mu ~ normal(0, 5);
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Likelihood.
   y ~ normal(mu, tau);
 }
 ```
 
-We'll save this Stan script as `regression.stan`. Imagine this is a model of customer satisfaction where we have `N` individuals, a vector of satisfaction scores `y` with a single observation from each individual, and we are assuming that satisfaction `y` is distributed `normal`, with a single mean `mu` and variance `tau` to describe customer satisfaction in the population. Finally, our joint model is complete with a `normal` prior on `mu` and a `cauchy` prior on `tau`.
+We'll save this Stan script as `regression.stan`. Imagine this is a model of customer satisfaction where we have `N` individuals, a vector of satisfaction scores `y` with a single observation from each individual, and we are assuming that satisfaction `y` is distributed `normal`, with a single mean `mu` and variance `tau` to describe customer satisfaction in the population. Finally, our joint model is complete with `normal` priors on `mu` and `tau`, where `tau` is constrained to be positive in the `parameters` block.
 
 Like all Bayesian models, this model is generative, so we can also use Stan to generate data according to some assumed parameter values and then use the generated data to test the model, including demonstrating parameter recovery. To do this, we reorganize these three blocks into `data` (which now includes the assumed parameter values as data) and `generated quantities` blocks (which now includes the observations that will be generated).
 
@@ -132,8 +132,6 @@ fit <- stan(
 ```
 
 ```
-...
-
 SAMPLING FOR MODEL 'regression' NOW (CHAIN 4).
 Chain 4: Gradient evaluation took 1.2e-05 seconds
 Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.12 seconds.

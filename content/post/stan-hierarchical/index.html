@@ -1,7 +1,7 @@
 ---
 title: "Hierarchical models in Stan"
 author: "Marc Dotson"
-date: '2019-12-29'
+date: '2019-12-31'
 slug: stan-hierarchical
 ---
 
@@ -9,7 +9,7 @@ slug: stan-hierarchical
 
 <p>Bayesian inference provides an intuitive and self-consistent approach to statistical modeling. In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition – it’s been the required computation. There has been a great deal of progress on this front, with <a href="https://mc-stan.org">Stan</a> arguably providing the best modern solution.</p>
 <p>Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by focusing solely on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.</p>
-<p>The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a <a href="https://www.tidyverse.org">tidy approach</a> whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, and the <a href="https://mc-stan.org/docs/2_21/stan-users-guide/index.html">Stan User’s Guide</a>. Much of what follows is motivated by Richard and Michael’s work as well as Ben Goodrich’s <a href="https://mc-stan.org/events/stancon2019Cambridge/">StanCon 2019</a> tutorial.</p>
+<p>The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a <a href="https://www.tidyverse.org">tidy approach</a> whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, and the <a href="https://mc-stan.org/docs/2_21/stan-users-guide/index.html">Stan User’s Guide</a>. Much of what follows is motivated by Michael and Richard’s work as well as Ben Goodrich’s <a href="https://mc-stan.org/events/stancon2019Cambridge/">StanCon 2019</a> tutorial.</p>
 <div id="simple-regression" class="section level2">
 <h2>Simple regression</h2>
 <p>By way of introduction, let’s start with a simple, non-hierarchical regression. In a Stan script, which <a href="https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/">has native support in RStudio</a>, we specify the three required blocks for a Stan model: <code>data</code>, <code>parameters</code>, and <code>model</code> (i.e., the prior and the likelihood).</p>
@@ -29,12 +29,12 @@ parameters {
 model {
   // Priors.
   mu ~ normal(0, 5);
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Likelihood.
   y ~ normal(mu, tau);
 }</code></pre>
-<p>We’ll save this Stan script as <code>regression.stan</code>. Imagine this is a model of customer satisfaction where we have <code>N</code> individuals, a vector of satisfaction scores <code>y</code> with a single observation from each individual, and we are assuming that satisfaction <code>y</code> is distributed <code>normal</code>, with a single mean <code>mu</code> and variance <code>tau</code> to describe customer satisfaction in the population. Finally, our joint model is complete with a <code>normal</code> prior on <code>mu</code> and a <code>cauchy</code> prior on <code>tau</code>.</p>
+<p>We’ll save this Stan script as <code>regression.stan</code>. Imagine this is a model of customer satisfaction where we have <code>N</code> individuals, a vector of satisfaction scores <code>y</code> with a single observation from each individual, and we are assuming that satisfaction <code>y</code> is distributed <code>normal</code>, with a single mean <code>mu</code> and variance <code>tau</code> to describe customer satisfaction in the population. Finally, our joint model is complete with <code>normal</code> priors on <code>mu</code> and <code>tau</code>, where <code>tau</code> is constrained to be positive in the <code>parameters</code> block.</p>
 <p>Like all Bayesian models, this model is generative, so we can also use Stan to generate data according to some assumed parameter values and then use the generated data to test the model, including demonstrating parameter recovery. To do this, we reorganize these three blocks into <code>data</code> (which now includes the assumed parameter values as data) and <code>generated quantities</code> blocks (which now includes the observations that will be generated).</p>
 <pre class="stan"><code>// Simple regression.
 
@@ -105,9 +105,7 @@ fit &lt;- stan(
   data = data,
   seed = 42
 )</code></pre>
-<pre><code>...
-
-SAMPLING FOR MODEL &#39;regression&#39; NOW (CHAIN 4).
+<pre><code>SAMPLING FOR MODEL &#39;regression&#39; NOW (CHAIN 4).
 Chain 4: Gradient evaluation took 1.2e-05 seconds
 Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.12 seconds.
 Chain 4: Adjust your expectations accordingly!

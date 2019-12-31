@@ -14,7 +14,7 @@ parameters {
 model {
   // Priors.
   mu ~ normal(0, 5);
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Likelihood.
   y ~ normal(mu, tau);
