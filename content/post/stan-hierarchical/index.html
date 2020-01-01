@@ -36,9 +36,7 @@ model {
 }</code></pre>
 <p>We’ll save this Stan script as <code>regression.stan</code>. Imagine this is a model of customer satisfaction where we have <code>N</code> individuals, a vector of satisfaction scores <code>y</code> with a single observation from each individual, and we are assuming that satisfaction <code>y</code> is distributed <code>normal</code>, with a single mean <code>mu</code> and variance <code>tau</code> to describe customer satisfaction in the population. Finally, our joint model is complete with <code>normal</code> priors on <code>mu</code> and <code>tau</code>, where <code>tau</code> is constrained to be positive in the <code>parameters</code> block.</p>
 <p>Like all Bayesian models, this model is generative, so we can also use Stan to generate data according to some assumed parameter values and then use the generated data to test the model, including demonstrating parameter recovery. To do this, we reorganize these three blocks into <code>data</code> (which now includes the assumed parameter values as data) and <code>generated quantities</code> blocks (which now includes the observations that will be generated).</p>
-<pre class="stan"><code>// Simple regression.
-
-// Index and parameter values.
+<pre class="stan"><code>// Index and parameter values.
 data {
   int&lt;lower = 1&gt; N;    // Number of observations.
   real mu;             // Mean of the regression.
@@ -491,7 +489,7 @@ Chain 4:
 Chain 4:  Elapsed Time: 151.058 seconds (Warm-up)
 Chain 4:                146.161 seconds (Sampling)
 Chain 4:                297.219 seconds (Total)</code></pre>
-<p>Note that even though we’ve preemptively set <code>adapt_delta = 0.99</code> given the previous model’s performance, it will be easy to run into problems given the additional dimensions we’ve added to the posterior. We’ll touch on possible solutions at the end. For now, the model has completed without any warnings.</p>
+<p>Note that even though we’ve preemptively set <code>adapt_delta = 0.99</code> given the previous model’s performance, it will be easy to run into problems with the additional dimensions we’ve added to the posterior. We’ll touch on a common solution, when needed, at the end. For now the model has finished calibration without any warnings.</p>
 <p>Let’s evaluate trace plots.</p>
 <pre class="r"><code># Check population model trace plots.
 gamma_string &lt;- str_c(&quot;Gamma[&quot;, 1:data$J, &quot;,&quot;, 1, &quot;]&quot;)
@@ -528,7 +526,7 @@ fit %&gt;%
   )</code></pre>
 <p><img src="Figures/mcmc_trace-02b.png" width="1000" /></p>
 <p>Once again, we have good mixing and clear convergence across all chains, now for our many model parameters.</p>
-<p>Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within or near reasonable credible intervals.</p>
+<p>Finally, we can demonstrate parameter recovery.</p>
 <pre class="r"><code># Recover Gamma values.
 gamma_values &lt;- tibble(
   j = sort(rep(1:(data$J), data$I)),
@@ -590,12 +588,12 @@ fit %&gt;%
     scales = &quot;free&quot;
   )</code></pre>
 <p><img src="Figures/marginals-02c.png" width="1000" />
-All the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a multiple hierarchical regression model in Stan, with covariates at both the observation and population levels, generated data according to that model, and used the generated data to demonstrate that the model is working.</p>
+All the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a multiple hierarchical regression model in Stan – with covariates at both the observation and population levels, generated data according to that model, and used the generated data to demonstrate that the model is working.</p>
 </div>
 <div id="final-thoughts" class="section level2">
 <h2>Final thoughts</h2>
-<p>While we haven’t touched on a complete Bayesian inference workflow, including evaluating prior and likelihood specifications using prior and posterior predictive checks, hopefully this provides a helpful starting point for using hierarchical models in Stan. While our model didn’t require it, the <a href="https://arxiv.org/abs/1312.0906">posterior geometry of hierarchical models typically require the non-centered parameterization</a>.</p>
-<p>Hierarchical models provide partial pooling, a middle-ground between no information pooling (i.e., separate non-hierarchical models for each group) and complete information pooling (i.e., a single non-hierarchical model). They allow for covariates and parameter estimation at both the observation and population levels. Most importantly, they allow for modeling heterogeneity – differences across groups. Given the prevalence of heterogeneity, hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation.</p>
+<p>While we haven’t touched on a complete Bayesian inference workflow, including evaluating prior and likelihood specifications using prior and posterior predictive checks, hopefully this provides a helpful starting point for using hierarchical models in Stan. While our model didn’t require it, the <a href="https://arxiv.org/abs/1312.0906">posterior geometry of hierarchical models typically requires a non-centered parameterization</a>.</p>
+<p>Hierarchical models provide partial information pooling, a middle-ground between no information pooling (i.e., separate non-hierarchical models for each group) and complete information pooling (i.e., a single non-hierarchical model). They allow for covariates and parameter estimation at both the observation and population levels. Most importantly, they allow for modeling heterogeneity – differences across groups. Given the prevalence of heterogeneity, hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation.</p>
 <hr />
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>
