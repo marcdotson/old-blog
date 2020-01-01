@@ -239,21 +239,6 @@ fit <- stan(
   seed = 42
 )
 
-# # Plot??
-# # fit_temp <- fit
-# fit_temp %>%
-#   mcmc_scatter(pars = c("Beta[1,1]", "tau"))
-#
-# pairs(fit_temp)
-
-# Calibrate the model with a non-centered parameterization.
-fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02b.stan"),
-  data = data,
-  control = list(adapt_delta = 0.99),
-  seed = 42
-)
-
 # Check population model trace plots.
 gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
 for (i in 2:data$I) {
