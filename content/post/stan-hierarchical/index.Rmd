@@ -411,7 +411,7 @@ Both the assumed hyperparameter and parameter values have been recovered by the 
 
 ## Multiple hierarchical regression
 
-In this final section, let's fully embrace what it means to have a hierarchical model. With both an observational model *and* a population model, we can include both observation-level and population-level covariates, which means increasing the number of model parameters and hyperparameters. While there isn't a concern about having "too many parameters," since this will simply be expressed in terms of less certainty about any given parameter, we will run into issues with dimensionality.
+In this final section, let's fully embrace what it means to have a hierarchical model. With both an observational model *and* a population model, we can include both observation-level and population-level covariates.
 
 Exciting, right? Let's get started.
 
@@ -443,10 +443,10 @@ model {
   for (j in 1:J) {
     Gamma[j,] ~ normal(0, 5);
   }
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Prior.
-  sigma ~ cauchy(0, 2.5);
+  sigma ~ normal(0, 5);
 
   // Population model and likelihood.
   for (k in 1:K) {
@@ -505,24 +505,24 @@ Note that the `data` block now includes the `X` and `Z` matrices, the observatio
 ```{r simulation-02, eval=FALSE}
 # Specify data and hyperparameter values.
 sim_values <- list(
-  N = 100,                            # Number of observations.
-  K = 3,                              # Number of groups.
-  I = 4,                              # Number of observation-level covariates.
-  J = 7,                              # Number of population-level covariates.
+  N = 500,                            # Number of observations.
+  K = 5,                              # Number of groups.
+  I = 7,                              # Number of observation-level covariates.
+  J = 3,                              # Number of population-level covariates.
 
   # Matrix of observation-level covariates.
   X = cbind(
-    rep(1, 100),
-    matrix(runif(100 * (4 - 1), min = 1, max = 10), nrow = 100)
+    rep(1, 500),
+    matrix(runif(500 * (7 - 1), min = 1, max = 10), nrow = 500)
   ),
 
   # Matrix of population-level covariates.
   Z = cbind(
-    rep(1, 3),
-    matrix(runif(3 * (7 - 1), min = 2, max = 5), nrow = 3)
+    rep(1, 5),
+    matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
   ),
 
-  g = sample(3, 100, replace = TRUE), # Vector of group assignments.
+  g = sample(5, 500, replace = TRUE), # Vector of group assignments.
   tau = 1,                            # Variance of the population model.
   sigma = 1                           # Variance of the likelihood.
 )
@@ -580,125 +580,163 @@ fit <- stan(
 ```
 
 ```
-Warning messages:
-1: There were 5 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See
-http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
-2: There were 2000 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See
-http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded 
-3: There were 1 chains where the estimated Bayesian Fraction of Missing Information was low. See
-http://mc-stan.org/misc/warnings.html#bfmi-low 
-4: Examine the pairs() plot to diagnose sampling problems
-5: The largest R-hat is 1.42, indicating chains have not mixed.
-Running the chains for more iterations may help. See
-http://mc-stan.org/misc/warnings.html#r-hat 
-6: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
-Running the chains for more iterations may help. See
-http://mc-stan.org/misc/warnings.html#bulk-ess 
-7: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
-Running the chains for more iterations may help. See
-http://mc-stan.org/misc/warnings.html#tail-ess 
+SAMPLING FOR MODEL 'hierarchical_regression_02' NOW (CHAIN 4).
+Chain 4: 
+Chain 4: Gradient evaluation took 0.000721 seconds
+Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 7.21 seconds.
+Chain 4: Adjust your expectations accordingly!
+Chain 4: 
+Chain 4: 
+Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
+Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
+Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
+Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
+Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
+Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
+Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
+Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
+Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
+Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
+Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
+Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
+Chain 4: 
+Chain 4:  Elapsed Time: 151.058 seconds (Warm-up)
+Chain 4:                146.161 seconds (Sampling)
+Chain 4:                297.219 seconds (Total)
 ```
 
-Note that even though we've preemptively set `adapt_delta = 0.99` given the previous model's performance, we clearly have problems. As we've added more parameters, the posterior has increased in dimensions and complexity, making it even more difficult to navigate. We need to reparameterize our model such that the posterior geometry is easier to navigate. The non-centered parameterization is commonly used, imposing a deterministic transformation between layers in the hierarchy.
+Note that even though we've preemptively set `adapt_delta = 0.99` given the previous model's performance, it will be easy to run into problems given the additional dimensions we've added to the posterior. We'll touch on possible solutions at the end. For now, the model has completed without any warnings.
 
-```{stan hierarchical-regression-02b, output.var="hierarchical_regression_02b", eval=FALSE}
-// Index values, observations, and covariates.
-data {
-  int<lower = 1> N;               // Number of observations.
-  int<lower = 1> K;               // Number of groups.
-  int<lower = 1> I;               // Number of observation-level covariates.
-  int<lower = 1> J;               // Number of population-level covariates.
+Let's evaluate trace plots.
 
-  vector[N] y;                    // Vector of observations.
-  int<lower = 1, upper = K> g[N]; // Vector of group assignments.
-  matrix[N, I] X;                 // Matrix of observation-level covariates.
-  matrix[K, J] Z;                 // Matrix of population-level covariates.
+```{r trace-plots-02a, eval=FALSE}
+# Check population model trace plots.
+gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
+for (i in 2:data$I) {
+  gamma_temp <- str_c("Gamma[", 1:data$J, ",", i, "]")
+  gamma_string <- c(gamma_string, gamma_temp)
 }
-
-// Parameters and hyperparameters.
-parameters {
-  matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  real<lower = 0> tau;            // Variance of the population model.
-  matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
-  real<lower = 0> sigma;          // Variance of the likelihood.
-}
-
-// Deterministic transformation.
-transformed parameters {
-  // Matrix of centered observation-level coefficients.
-  matrix[K, I] Beta;
-
-  // Non-centered parameterization.
-  for (k in 1:K) {
-    Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
-  }
-}
-
-// Hierarchical regression.
-model {
-  // Hyperpriors.
-  for (j in 1:J) {
-    Gamma[j,] ~ normal(0, 5);
-  }
-  tau ~ cauchy(0, 2.5);
-
-  // Prior.
-  sigma ~ cauchy(0, 2.5);
-
-  // Non-centered population model and likelihood.
-  for (k in 1:K) {
-    Delta[k,] ~ normal(0, 1);
-  }
-  for (n in 1:N) {
-    y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);
-  }
-}
+fit %>%
+  mcmc_trace(
+    pars = c(gamma_string, "tau"),
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(c(gamma_string, "tau")) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
 ```
 
-...
+![](Figures/mcmc_trace-02a.png){width=1000px}
 
-```{r model-calibration-02b, eval=FALSE}
-# Calibrate the model with a non-centered parameterization.
-fit <- stan(
-  file = here::here("Code", "hierarchical_regression_02b.stan"),
-  data = data,
-  control = list(adapt_delta = 0.99),
-  seed = 42
-)
+```{r trace-plots-02b, eval=FALSE}
+# Check observation model trace plots.
+beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
+for (i in 2:data$I) {
+  beta_temp <- str_c("Beta[", 1:data$K, ",", i, "]")
+  beta_string <- c(beta_string, beta_temp)
+}
+fit %>%
+  mcmc_trace(
+    pars = c(beta_string, "sigma"),
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(c(beta_string, "sigma")) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
 ```
 
-...
+![](Figures/mcmc_trace-02b.png){width=1000px}
 
-```{r trace-plots-02, eval=FALSE}
+Once again, we have good mixing and clear convergence across all chains, now for our many model parameters.
 
-```
-
-<!-- ![](Figures/mcmc_trace-02.png){width=1000px} -->
+Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within or near reasonable credible intervals.
 
 ```{r marginals-02a, eval=FALSE}
+# Recover Gamma values.
+gamma_values <- tibble(
+  j = sort(rep(1:(data$J), data$I)),
+  i = rep(1:(data$I), data$J),
+  .variable = str_c("Gamma", "_", j, "_", i),
+  values = as.vector(t(matrix(sim_Gamma, ncol = data$I)))
+) %>%
+  select(.variable, values)
 
+fit %>%
+  gather_draws(Gamma[j, i]) %>%
+  unite(.variable, .variable, j, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), gamma_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$J,
+    ncol = data$I,
+    scales = "free"
+  )
 ```
 
-<!-- ![](Figures/marginals-02a.png){width=1000px} -->
+![](Figures/marginals-02a.png){width=1000px}
 
 ```{r marginals-02b, eval=FALSE}
+# Recover Beta values.
+beta_values <- tibble(
+  n = sort(rep(1:(data$K), data$I)),
+  i = rep(1:(data$I), data$K),
+  .variable = str_c("Beta", "_", n, "_", i),
+  values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
+) %>%
+  select(.variable, values)
 
+fit %>%
+  gather_draws(Beta[n, i]) %>%
+  unite(.variable, .variable, n, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), beta_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$K,
+    ncol = data$I,
+    scales = "free"
+  )
 ```
 
-<!-- ![](Figures/marginals-02b.png){width=1000px} -->
+![](Figures/marginals-02b.png){width=1000px}
+
+```{r marginals-02c, eval=FALSE}
+# Recover tau and sigma values.
+hyper_par_values <- tibble(
+  .variable = c("tau", "sigma"),
+  values = c(sim_values$tau, sim_values$sigma),
+)
+
+fit %>%
+  gather_draws(tau, sigma) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), hyper_par_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = "free"
+  )
+```
+
+![](Figures/marginals-02c.png){width=1000px}
+All the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a multiple hierarchical regression model in Stan, with covariates at both the observation and population levels, generated data according to that model, and used the generated data to demonstrate that the model is working.
 
 ## Final thoughts
 
-Hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation. Additional reasons to mention using hierarchical models:
+While we haven't touched on a complete Bayesian inference workflow, including evaluating prior and likelihood specifications using prior and posterior predictive checks, hopefully this provides a helpful starting point for using hierarchical models in Stan. While our model didn't require it, the [posterior geometry of hierarchical models typically require the non-centered parameterization](https://arxiv.org/abs/1312.0906).
 
-- Partial pooling (like shrinking, adaptively moving between an aggregate model and separate models, which also helps avoid overfitting).
-- Dealing with interactions in a general, interpretable way (plus regularization).
-- Estimate both observation and population parameters simultaneously.
-- Include information in the form of covariates at both observation and population levels.
+Hierarchical models provide partial pooling, a middle-ground between no information pooling (i.e., separate non-hierarchical models for each group) and complete information pooling (i.e., a single non-hierarchical model). They allow for covariates and parameter estimation at both the observation and population levels. Most importantly, they allow for modeling heterogeneity -- differences across groups. Given the prevalence of heterogeneity, hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation.
 
 -----
 
 ### Marc Dotson
 
-Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics to undergraduate and MBA students. You can find him on [Twitter](https://twitter.com/marcdotson) and [GitHub](https://github.com/marcdotson).
-
+Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on [Twitter](https://twitter.com/marcdotson) and [GitHub](https://github.com/marcdotson).

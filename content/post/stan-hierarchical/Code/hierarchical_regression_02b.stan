@@ -36,10 +36,10 @@ model {
   for (j in 1:J) {
     Gamma[j,] ~ normal(0, 5);
   }
-  tau ~ cauchy(0, 2.5);
+  tau ~ normal(0, 5);
 
   // Prior.
-  sigma ~ cauchy(0, 2.5);
+  sigma ~ normal(0, 5);
 
   // Non-centered population model and likelihood.
   for (k in 1:K) {

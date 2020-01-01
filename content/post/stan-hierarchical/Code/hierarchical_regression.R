@@ -182,24 +182,24 @@ ggsave(
 # 02 Multiple Hierarchical Regression -------------------------------------
 # Specify data and hyperparameter values.
 sim_values <- list(
-  N = 100,                            # Number of observations.
-  K = 3,                              # Number of groups.
-  I = 4,                              # Number of observation-level covariates.
-  J = 7,                              # Number of population-level covariates.
+  N = 500,                            # Number of observations.
+  K = 5,                              # Number of groups.
+  I = 7,                              # Number of observation-level covariates.
+  J = 3,                              # Number of population-level covariates.
 
   # Matrix of observation-level covariates.
   X = cbind(
-    rep(1, 100),
-    matrix(runif(100 * (4 - 1), min = 1, max = 10), nrow = 100)
+    rep(1, 500),
+    matrix(runif(500 * (7 - 1), min = 1, max = 10), nrow = 500)
   ),
 
   # Matrix of population-level covariates.
   Z = cbind(
-    rep(1, 3),
-    matrix(runif(3 * (7 - 1), min = 2, max = 5), nrow = 3)
+    rep(1, 5),
+    matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
   ),
 
-  g = sample(3, 100, replace = TRUE), # Vector of group assignments.
+  g = sample(5, 500, replace = TRUE), # Vector of group assignments.
   tau = 1,                            # Variance of the population model.
   sigma = 1                           # Variance of the likelihood.
 )
@@ -239,6 +239,13 @@ fit <- stan(
   seed = 42
 )
 
+# # Plot??
+# # fit_temp <- fit
+# fit_temp %>%
+#   mcmc_scatter(pars = c("Beta[1,1]", "tau"))
+#
+# pairs(fit_temp)
+
 # Calibrate the model with a non-centered parameterization.
 fit <- stan(
   file = here::here("content", "post", "stan-hierarchical", "Code", "hierarchical_regression_02b.stan"),
@@ -247,30 +254,48 @@ fit <- stan(
   seed = 42
 )
 
-#### ADD SIGMA
-
-# Check trace plots.
+# Check population model trace plots.
 gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
-beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
 for (i in 2:data$I) {
   gamma_temp <- str_c("Gamma[", 1:data$J, ",", i, "]")
-  beta_temp <- str_c("Beta[", 1:data$K, ",", i, "]")
   gamma_string <- c(gamma_string, gamma_temp)
-  beta_string <- c(beta_string, beta_temp)
 }
 fit %>%
   mcmc_trace(
-    pars = c(gamma_string, "tau", beta_string, "sigma"),
+    pars = c(gamma_string, "tau"),
     n_warmup = 500,
     facet_args = list(
-      nrow = round((data$I * data$K + data$J * data$I + 1) / 3),
-      ncol = 3,
+      nrow = ceiling(length(c(gamma_string, "tau")) / 4),
+      ncol = 4,
       labeller = label_parsed
     )
   )
 
 ggsave(
-  "mcmc_trace-02.png",
+  "mcmc_trace-02a.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 8, height = 8, units = "in"
+)
+
+# Check observation model trace plots.
+beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
+for (i in 2:data$I) {
+  beta_temp <- str_c("Beta[", 1:data$K, ",", i, "]")
+  beta_string <- c(beta_string, beta_temp)
+}
+fit %>%
+  mcmc_trace(
+    pars = c(beta_string, "sigma"),
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(c(beta_string, "sigma")) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-02b.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 8, height = 12, units = "in"
 )
@@ -300,10 +325,8 @@ fit %>%
 ggsave(
   "marginals-02a.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 7, height = 3, units = "in"
+  width = 16, height = 8, units = "in"
 )
-
-# Recover Sigma values.
 
 # Recover Beta values.
 beta_values <- tibble(
@@ -328,7 +351,31 @@ fit %>%
   )
 
 ggsave(
+  "marginals-02b.png",
+  path = here::here("content", "post", "stan-hierarchical", "Figures"),
+  width = 16, height = 12, units = "in"
+)
+
+# Recover tau and sigma values.
+hyper_par_values <- tibble(
+  .variable = c("tau", "sigma"),
+  values = c(sim_values$tau, sim_values$sigma),
+)
+
+fit %>%
+  gather_draws(tau, sigma) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), hyper_par_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = 2,
+    scales = "free"
+  )
+
+ggsave(
   "marginals-02c.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
-  width = 10, height = 5, units = "in"
+  width = 7, height = 3, units = "in"
 )
+
