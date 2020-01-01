@@ -1,7 +1,7 @@
 ---
 title: "Two brothers with a mostly Bayesian focus"
 slug: about
-date: '2019-10-22'
+date: '2019-12-20'
 type: page
 ---
 
@@ -19,7 +19,7 @@ Jeff is an associate professor of marketing at the BYU Marriott School of Busine
 
 ## Marc Dotson
 
-Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics to undergraduate and MBA students.
+Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics.
 
 - [Twitter](https://twitter.com/marcdotson)
 - [GitHub](https://github.com/marcdotson)

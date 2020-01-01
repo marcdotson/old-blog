@@ -5,6 +5,3 @@
 .Ruserdata
 public/
 .DS_Store
-
-# Data.
-content/post/stan-hierarchical/Data/*
