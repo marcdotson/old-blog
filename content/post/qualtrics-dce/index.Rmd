@@ -1,0 +1,16 @@
+---
+title: "Discrete Choice Experimentation in Qualtrics"
+author: "Jeff Dotson"
+date: '2019-12-31'
+slug: qualtrics-dce
+---
+
+## Motivation
+
+Here is the motivation for this post.
+
+-----
+
+### Jeff Dotson
+
+Jeff is an associate professor of marketing at the BYU Marriott School of Business where he teaches courses in pricing strategies, marketing research, and marketing analytics. Prior to joining the faculty at BYU, he worked as an assistant professor in the Owen Graduate School of Management at Vanderbilt University. He holds a PhD in Marketing from The Ohio State University and masters degrees in business administration (MBA) and statistics (MS) from the University of Utah. His research focuses on the development and application of Bayesian statistical methods to a variety of marketing problems. You can find him on [Twitter](https://twitter.com/jdotson77) and [GitHub](https://github.com/jeff-dotson).
