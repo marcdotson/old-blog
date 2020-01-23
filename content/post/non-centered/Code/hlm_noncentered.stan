@@ -49,3 +49,12 @@ model {
     y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);
   }
 }
+
+// Quantities conditioned on parameter draws.
+generated quantities {
+  // Log likelihood to estimate loo.
+  vector[N] log_lik;
+  for (n in 1:N) {
+    log_lik[n] = normal_lpdf(y[n] | X[n,] * Beta[g[n],]', sigma);
+  }
+}

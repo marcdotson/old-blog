@@ -5,7 +5,10 @@ date: '2020-02-01'
 slug: non-centered
 ---
 
-Continuation from stan-hierarchical.
+Continuation from stan-hierarchical. Generate data according to a hierarchical model with covariates in the upper-level.
+
+- Start with using a model that only uses an intercept in the upper-level to confirm non-centered parameterization is working as intended.
+- Compare model fit using PSIS-LOO.
 
 ## Centered
 
