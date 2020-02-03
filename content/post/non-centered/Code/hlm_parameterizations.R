@@ -6,6 +6,7 @@ library(loo)
 
 # Set Stan options.
 options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 
 # Generate Data -----------------------------------------------------------
 # Specify data and hyperparameter values.
@@ -13,8 +14,7 @@ sim_values <- list(
   N = 500,                            # Number of observations.
   K = 5,                              # Number of groups.
   I = 7,                              # Number of observation-level covariates.
-  J = 1,                              # Number of population-level covariates.
-  J = 3,                              # Number of population-level covariates.
+  # J = 3,                              # Number of population-level covariates.
   g = sample(5, 500, replace = TRUE), # Vector of group assignments.
 
   # Matrix of observation-level covariates.
@@ -24,10 +24,11 @@ sim_values <- list(
   ),
 
   # Matrix of population-level covariates.
-  Z = cbind(
-    rep(1, 5),
-    matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
-  ),
+  # Z = cbind(
+  #   rep(1, 5),
+  #   matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
+  # ),
+  Z = rep(1, 5),
 
   tau = 1,                            # Variance of the population model.
   sigma = 1                           # Variance of the likelihood.
@@ -43,6 +44,20 @@ sim_data <- stan(
   algorithm = "Fixed_param"
 )
 
+# Save simulation values and data.
+write_rds(
+  sim_values,
+  path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
+)
+write_rds(
+  sim_data,
+  path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
+)
+
+# Load simulation values and data.
+sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values.rds"))
+sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data.rds"))
+
 # Extract simulated data and group intercepts.
 sim_y <- extract(sim_data)$y
 sim_Gamma <- extract(sim_data)$Gamma
@@ -55,12 +70,11 @@ data <- list(
   K = sim_values$K,     # Number of groups.
   I = sim_values$I,     # Number of observation-level covariates.
   # J = sim_values$J,     # Number of population-level covariates.
-  J = 1,                # Number of population-level covariates.
   y = as.vector(sim_y), # Vector of observations.
   g = sim_values$g,     # Vector of group assignments.
   X = sim_values$X,     # Matrix of observation-level covariates.
   # Z = sim_values$Z      # Matrix of population-level covariates.
-  Z = sim_values$Z[,1]  # Matrix of population-level covariates.
+  Z = sim_values$Z      # Vector of population-level covariates.
 )
 
 fit_centered <- stan(
@@ -70,16 +84,23 @@ fit_centered <- stan(
   seed = 42
 )
 
+# Save model run.
+write_rds(
+  fit_centered,
+  path = here::here("content", "post", "non-centered", "Output", "fit_centered.rds")
+)
+
 # Non-centered parameterization.
 data <- list(
   N = sim_values$N,     # Number of observations.
   K = sim_values$K,     # Number of groups.
   I = sim_values$I,     # Number of observation-level covariates.
-  J = sim_values$J,     # Number of population-level covariates.
+  # J = sim_values$J,     # Number of population-level covariates.
   y = as.vector(sim_y), # Vector of observations.
   g = sim_values$g,     # Vector of group assignments.
   X = sim_values$X,     # Matrix of observation-level covariates.
-  Z = sim_values$Z      # Matrix of population-level covariates.
+  # Z = sim_values$Z      # Matrix of population-level covariates.
+  Z = sim_values$Z      # Vector of population-level covariates.
 )
 
 fit_noncentered <- stan(
@@ -89,7 +110,17 @@ fit_noncentered <- stan(
   seed = 42
 )
 
+# Save model run.
+write_rds(
+  fit_noncentered,
+  path = here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds")
+)
+
 # Compute Model Fit -------------------------------------------------------
+# Load model runs.
+fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
+fit_noncentered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
+
 # Centered parameterization.
 log_lik_centered <- extract_log_lik(fit_centered, merge_chains = FALSE)
 r_eff_centered <- relative_eff(exp(log_lik_centered))

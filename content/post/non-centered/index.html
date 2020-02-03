@@ -7,12 +7,22 @@ slug: non-centered
 
 
 
-<p>Continuation from stan-hierarchical.</p>
+<p>Continuation from stan-hierarchical. Generate data according to a hierarchical model with covariates in the upper-level.</p>
 <div id="centered" class="section level2">
 <h2>Centered</h2>
+<p>The centered parameterization works as intended.</p>
 </div>
 <div id="non-centered" class="section level2">
 <h2>Non-centered</h2>
+<p>The non-centered parameterization still doesn’t work as intended, even when reducing the model so that there is a single intercept in the upper-level model.</p>
+</div>
+<div id="next-steps" class="section level2">
+<h2>Next Steps</h2>
+<ul>
+<li>Write out how to conduct the non-centered parameterization as a follow-up to the first post.</li>
+<li>Modify the non-centered parameterization so that it works with a an intercept-only upper-level model.</li>
+<li>Compare with centered model fit using PSIS-LOO.</li>
+</ul>
 <hr />
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>
