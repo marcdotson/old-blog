@@ -1,28 +1,31 @@
 ---
-title: "Non-centered parameterizations for hierarchical models"
+title: "Non-centered parameterization for hierarchical models"
 author: "Marc Dotson"
-date: '2020-02-01'
+date: '2020-03-01'
 slug: non-centered
 ---
 
 
 
-<p>Continuation from stan-hierarchical. Generate data according to a hierarchical model with covariates in the upper-level.</p>
-<div id="centered" class="section level2">
-<h2>Centered</h2>
-<p>The centered parameterization works as intended.</p>
+<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, which is true independent of sampler, we were able to initially fix the problem by more carefully navigating the posterior with a smaller step size.</p>
+<p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough for non-centered parameterizations for hierarchical Bayesian models in Stan.</p>
+<div id="non-centered-parameterization" class="section level2">
+<h2>Non-centered parameterization</h2>
+<p>Our assumed error is <code>delta ~ normal(0, 1)</code> such that <code>beta = mu + tau * delta</code>. Following a centered parameterization, we can translate this into a population model and likelihood for a simple hierarchical regression as:</p>
+<pre><code>beta ~ normal(mu, tau);
+y ~ normal(beta, sigma);</code></pre>
+<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>beta</code>.</p>
+<p>On the other hand, following a non-centered parameterization, we can translate this into a population model and likelihood for a simple hierarchical regression as:</p>
+<pre><code>delta ~ normal(0, 1);
+beta = mu + tau * delta;
+y ~ normal(beta, sigma);</code></pre>
+<p>where we now get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation rather than its own draw. The non-centered parameterization is thus simply that, including <code>delta</code> rather than <code>beta</code> in the posterior distribution, where <code>beta</code> is often the vector of parameters that introduces difficult geometry.</p>
 </div>
-<div id="non-centered" class="section level2">
-<h2>Non-centered</h2>
-<p>The non-centered parameterization still doesn’t work as intended, even when reducing the model so that there is a single intercept in the upper-level model.</p>
+<div id="simple-hierarchical-regression" class="section level2">
+<h2>Simple hierarchical regression</h2>
 </div>
-<div id="next-steps" class="section level2">
-<h2>Next Steps</h2>
-<ul>
-<li>Write out how to conduct the non-centered parameterization as a follow-up to the first post.</li>
-<li>Modify the non-centered parameterization so that it works with a an intercept-only upper-level model.</li>
-<li>Compare with centered model fit using PSIS-LOO.</li>
-</ul>
+<div id="multiple-hierarchical-regression" class="section level2">
+<h2>Multiple hierarchical regression</h2>
 <hr />
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>
