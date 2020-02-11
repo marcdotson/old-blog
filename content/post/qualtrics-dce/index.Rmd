@@ -1,13 +1,42 @@
 ---
-title: "Discrete Choice Experimentation in Qualtrics"
+title: "Discrete choice experimentation in Qualtrics"
 author: "Jeff Dotson"
-date: '2019-12-31'
+date: '2020-1-26'
 slug: qualtrics-dce
 ---
 
 ## Motivation
 
-Here is the motivation for this post.
+One of Marc and I's motivations for this blog is to create a repository of useful resources that other researchers, doctoral students, research assistants, and marketing research practitioners may benefit from.  These include things that have been critical for our productivity as researchers, but are not sufficiently innovative or interesting enough to be included in an academic paper.  
+
+Over the past few years, I have been conducting choice-based conjoint studies using the Qualtrics platform for survey research. Qualtrics now offers its own DIY choice-based-conjoint tool. It is a great product and is a nice way for a novice-practitioner to execute sophisticated choice studies.  There are times, however, where you need greater control over the design of the experiment, the mode of data collection, or the data analysis procedure.  In those cases, it is possible to design and execute custom CBC studies with in the Qualtrics platform.  Be warned!  Doing so is not a trivial exercise.  
+To do so, you will need access to the following:
+
+1. A Qualtrics account: Most academic intuitions have a site-license for Qualtrics
+2. A place where you can host a (dynamic) webpage.  I use [godadd](godaddy.com)  
+3. A relational database (e.g., MySQL).  
+
+## A sketch of the process
+
+1. Generate the experimental design for you CBC study
+2. Push the design into a relational database that can be queried
+3. Create a webpage with a PhP script that will query the database and return (formatted in JSON) a particular version of your design
+4. Import the CBC design into Qualtrics using the "Web Service" feature in the survey flow.
+5. Create tables for the CBC tasks in your survey and import elements of the study design as "embedded data"
+6. Collect data 
+7. Analyze results
+
+To the fullest extent possible, I have tried to minimize the amount of manual work required to execute this process.  Most of this can be done dirrecly from R. That said, there are still a couple of steps that require a human touch.  There may be ways to automate these tasks.  If anyone has an idea of how to do so, please add your thoughts to the blog comments, or contact me direclty. 
+
+## Step 1: Design your experiment
+
+## Step 2: Push the study design into a relational database
+
+## Step 3: Create a webpage to query the database and display the design 
+
+## Step 4: Import the design into Qualtrics
+
+## Step 5: 
 
 -----
 
