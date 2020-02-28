@@ -2,12 +2,12 @@
 data {
   int<lower = 1> N;               // Number of observations.
   int<lower = 1> K;               // Number of groups.
-  // int<lower = 1> I;               // Number of observation-level covariates.
+  int<lower = 1> I;               // Number of observation-level covariates.
   // int<lower = 1> J;               // Number of population-level covariates.
 
   vector[N] y;                    // Vector of observations.
   int<lower = 1, upper = K> g[N]; // Vector of group assignments.
-  // matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
   // matrix[K, J] Z;                 // Matrix of population-level covariates.
 }
 
@@ -16,21 +16,18 @@ parameters {
   // matrix[J, I] Gamma;             // Matrix of population-level coefficients.
   real mu;                        // Mean of the population model.
   real<lower = 0> tau;            // Variance of the population model.
-  // matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
-  vector[K] delta;                 // Vector of group intercepts.
+  matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
 
 // Deterministic transformation.
 transformed parameters {
   // Matrix of centered observation-level coefficients.
-  // matrix[K, I] Beta;
-  vector[K] beta;                 // Vector of group intercepts.
+  matrix[K, I] Beta;
 
   // Non-centered parameterization.
   for (k in 1:K) {
-    // Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
-    beta[k] = mu + tau * delta[k];
+    Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
   }
 }
 
@@ -48,12 +45,10 @@ model {
 
   // Non-centered population model and likelihood.
   for (k in 1:K) {
-    // Delta[k,] ~ normal(0, 1);
-    delta[k] ~ normal(0, 1);
+    Delta[k,] ~ normal(0, 1);
   }
   for (n in 1:N) {
-    // y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);
-    y[n] ~ normal(beta[g[n]], sigma);
+    y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);
   }
 }
 
@@ -62,7 +57,6 @@ generated quantities {
   // Log likelihood to estimate loo.
   vector[N] log_lik;
   for (n in 1:N) {
-    // log_lik[n] = normal_lpdf(y[n] | X[n,] * Beta[g[n],]', sigma);
-    log_lik[n] = normal_lpdf(y[n] | beta[g[n]], sigma);
+    log_lik[n] = normal_lpdf(y[n] | X[n,] * Beta[g[n],]', sigma);
   }
 }

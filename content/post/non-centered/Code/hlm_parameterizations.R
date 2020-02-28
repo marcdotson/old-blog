@@ -15,7 +15,7 @@ rstan_options(auto_write = TRUE)
 sim_values <- list(
   N = 500,                            # Number of observations.
   K = 5,                              # Number of groups.
-  # I = 7,                              # Number of observation-level covariates.
+  I = 7,                              # Number of observation-level covariates.
   # J = 3,                              # Number of population-level covariates.
   g = sample(5, 500, replace = TRUE), # Vector of group assignments.
 
@@ -49,37 +49,31 @@ sim_data <- stan(
 # Save simulation values and data.
 write_rds(
   sim_values,
-  # path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
-  path = here::here("content", "post", "non-centered", "Data", "sim_values2.rds")
+  path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
 )
 write_rds(
   sim_data,
-  # path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
-  path = here::here("content", "post", "non-centered", "Data", "sim_data2.rds")
+  path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
 )
 
 # Load simulation values and data.
 sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values.rds"))
 sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data.rds"))
-# sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values2.rds"))
-# sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data2.rds"))
 
 # Extract simulated data and group intercepts.
 sim_y <- extract(sim_data)$y
 # sim_Gamma <- extract(sim_data)$Gamma
-# sim_Beta <- extract(sim_data)$Beta
-sim_beta <- extract(sim_data)$beta
+sim_Beta <- extract(sim_data)$Beta
 
-# Fit Models --------------------------------------------------------------
-# Centered parameterization.
+# Fit Centered Parameterization -------------------------------------------
 data <- list(
   N = sim_values$N,     # Number of observations.
   K = sim_values$K,     # Number of groups.
-  # I = sim_values$I,     # Number of observation-level covariates.
+  I = sim_values$I,     # Number of observation-level covariates.
   # J = sim_values$J,     # Number of population-level covariates.
   y = as.vector(sim_y), # Vector of observations.
-  g = sim_values$g     # Vector of group assignments.
-  # X = sim_values$X     # Matrix of observation-level covariates.
+  g = sim_values$g,     # Vector of group assignments.
+  X = sim_values$X     # Matrix of observation-level covariates.
   # Z = sim_values$Z      # Matrix of population-level covariates.
 )
 
@@ -102,7 +96,7 @@ fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output",
 # Check trace plots.
 fit_centered %>%
   mcmc_trace(
-    pars = c("mu", "tau", str_c("beta[", 1:data$K, "]"), "sigma"),
+    pars = c("mu", "tau", str_c("Beta[", 1:data$K, "]"), "sigma"),
     n_warmup = 500,
     facet_args = list(nrow = 5, labeller = label_parsed)
   )
@@ -115,7 +109,7 @@ hyper_par_values <- tibble(
 
 beta_values <- tibble(
   n = 1:data$K,
-  beta = as.vector(sim_beta)
+  Beta = as.vector(sim_beta)
 )
 
 fit_centered %>%
@@ -130,31 +124,30 @@ fit_centered %>%
   )
 
 fit_centered %>%
-  spread_draws(beta[n]) %>%
-  ggplot(aes(x = beta, y = n)) +
+  spread_draws(Beta[n]) %>%
+  ggplot(aes(x = Beta, y = n)) +
   geom_halfeyeh(.width = .95) +
-  geom_vline(aes(xintercept = beta), beta_values, color = "red") +
+  geom_vline(aes(xintercept = Beta), beta_values, color = "red") +
   facet_wrap(
     ~ n,
     nrow = 3,
     scales = "free"
   )
 
-# Non-centered parameterization.
+# Fit Non-Centered Parameterization ---------------------------------------
 data <- list(
   N = sim_values$N,     # Number of observations.
   K = sim_values$K,     # Number of groups.
-  # I = sim_values$I,     # Number of observation-level covariates.
+  I = sim_values$I,     # Number of observation-level covariates.
   # J = sim_values$J,     # Number of population-level covariates.
   y = as.vector(sim_y), # Vector of observations.
-  g = sim_values$g     # Vector of group assignments.
-  # X = sim_values$X,     # Matrix of observation-level covariates.
+  g = sim_values$g,     # Vector of group assignments.
+  X = sim_values$X     # Matrix of observation-level covariates.
   # Z = sim_values$Z      # Matrix of population-level covariates.
 )
 
 fit_noncentered <- stan(
   file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
-  # file = here::here("content", "post", "non-centered", "Code", "simple_hlm.stan"),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42
@@ -169,7 +162,7 @@ write_rds(
 # Check trace plots.
 fit_noncentered %>%
   mcmc_trace(
-    pars = c("mu", "tau", str_c("beta[", 1:data$K, "]"), "sigma"),
+    pars = c("mu", "tau", str_c("Beta[", 1:data$K, "]"), "sigma"),
     n_warmup = 500,
     facet_args = list(nrow = 5, labeller = label_parsed)
   )
@@ -182,7 +175,7 @@ hyper_par_values <- tibble(
 
 beta_values <- tibble(
   n = 1:data$K,
-  beta = as.vector(sim_beta)
+  Beta = as.vector(sim_beta)
 )
 
 fit_noncentered %>%
@@ -197,10 +190,10 @@ fit_noncentered %>%
   )
 
 fit_noncentered %>%
-  spread_draws(beta[n]) %>%
-  ggplot(aes(x = beta, y = n)) +
+  spread_draws(Beta[n]) %>%
+  ggplot(aes(x = Beta, y = n)) +
   geom_halfeyeh(.width = .95) +
-  geom_vline(aes(xintercept = beta), beta_values, color = "red") +
+  geom_vline(aes(xintercept = Beta), beta_values, color = "red") +
   facet_wrap(
     ~ n,
     nrow = 3,
