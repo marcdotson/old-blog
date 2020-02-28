@@ -19,11 +19,11 @@ sim_values <- list(
   # J = 3,                              # Number of population-level covariates.
   g = sample(5, 500, replace = TRUE), # Vector of group assignments.
 
-  # # Matrix of observation-level covariates.
-  # X = cbind(
-  #   rep(1, 500),
-  #   matrix(runif(500 * (7 - 1), min = 1, max = 10), nrow = 500)
-  # ),
+  # Matrix of observation-level covariates.
+  X = cbind(
+    rep(1, 500),
+    matrix(runif(500 * (7 - 1), min = 1, max = 10), nrow = 500)
+  ),
 
   # Matrix of population-level covariates.
   # Z = cbind(
@@ -49,16 +49,20 @@ sim_data <- stan(
 # Save simulation values and data.
 write_rds(
   sim_values,
-  path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
+  # path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
+  path = here::here("content", "post", "non-centered", "Data", "sim_values2.rds")
 )
 write_rds(
   sim_data,
-  path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
+  # path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
+  path = here::here("content", "post", "non-centered", "Data", "sim_data2.rds")
 )
 
 # Load simulation values and data.
 sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values.rds"))
 sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data.rds"))
+# sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values2.rds"))
+# sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data2.rds"))
 
 # Extract simulated data and group intercepts.
 sim_y <- extract(sim_data)$y
@@ -75,7 +79,7 @@ data <- list(
   # J = sim_values$J,     # Number of population-level covariates.
   y = as.vector(sim_y), # Vector of observations.
   g = sim_values$g     # Vector of group assignments.
-  # X = sim_values$X,     # Matrix of observation-level covariates.
+  # X = sim_values$X     # Matrix of observation-level covariates.
   # Z = sim_values$Z      # Matrix of population-level covariates.
 )
 
@@ -91,6 +95,9 @@ write_rds(
   fit_centered,
   path = here::here("content", "post", "non-centered", "Output", "fit_centered.rds")
 )
+
+# Load model run.
+fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
 
 # Check trace plots.
 fit_centered %>%
@@ -147,6 +154,7 @@ data <- list(
 
 fit_noncentered <- stan(
   file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
+  # file = here::here("content", "post", "non-centered", "Code", "simple_hlm.stan"),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42

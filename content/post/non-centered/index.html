@@ -8,24 +8,74 @@ slug: non-centered
 
 
 <p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, which is true independent of sampler, we were able to initially fix the problem by more carefully navigating the posterior with a smaller step size.</p>
-<p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough for non-centered parameterizations for hierarchical Bayesian models in Stan.</p>
+<p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough of a non-centered parameterization for hierarchical Bayesian models in Stan.</p>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
 <p>Our assumed error is <code>delta ~ normal(0, 1)</code> such that <code>beta = mu + tau * delta</code>. Following a centered parameterization, we can translate this into a population model and likelihood for a simple hierarchical regression as:</p>
-<pre><code>beta ~ normal(mu, tau);
-y ~ normal(beta, sigma);</code></pre>
+<pre><code>beta ~ normal(mu, tau)
+y ~ normal(beta, sigma)</code></pre>
 <p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>beta</code>.</p>
 <p>On the other hand, following a non-centered parameterization, we can translate this into a population model and likelihood for a simple hierarchical regression as:</p>
-<pre><code>delta ~ normal(0, 1);
-beta = mu + tau * delta;
-y ~ normal(beta, sigma);</code></pre>
-<p>where we now get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation rather than its own draw. The non-centered parameterization is thus simply that, including <code>delta</code> rather than <code>beta</code> in the posterior distribution, where <code>beta</code> is often the vector of parameters that introduces difficult geometry.</p>
+<pre><code>delta ~ normal(0, 1)
+beta = mu + tau * delta
+y ~ normal(beta, sigma)</code></pre>
+<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters. The benefit of a non-centered parameterization is including <code>delta</code> rather than <code>beta</code> in the posterior distribution since <code>beta</code> is often piece that complicates the posterior with difficult geometry.</p>
 </div>
 <div id="simple-hierarchical-regression" class="section level2">
 <h2>Simple hierarchical regression</h2>
+<p>Let’s start by demonstrating how to implement a non-centered parameterization for a simple hierarchical regression.</p>
+<pre class="stan"><code>// Index values and observations.
+data {
+  int&lt;lower = 1&gt; N;               // Number of observations.
+  int&lt;lower = 1&gt; K;               // Number of groups.
+  vector[N] y;                    // Vector of observations.
+  int&lt;lower = 1, upper = K&gt; g[N]; // Vector of group assignments.
+}
+
+// Parameters and hyperparameters.
+parameters {
+  real mu;                        // Mean of the population model.
+  real&lt;lower = 0&gt; tau;            // Variance of the population model.
+  vector[K] delta;                // Vector of non-centered group intercepts.
+  real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
+}
+
+// Deterministic transformation.
+transformed parameters {
+  // Vector of transformed group intercepts.
+  vector[K] beta;
+
+  // Non-centered parameterization.
+  for (k in 1:K) {
+    beta[k] = mu + tau * delta[k];
+  }
+}
+
+// Hierarchical regression.
+model {
+  // Hyperpriors.
+  mu ~ normal(0, 5);
+  tau ~ normal(0, 5);
+
+  // Prior.
+  sigma ~ normal(0, 5);
+
+  // Non-centered population model and likelihood.
+  for (k in 1:K) {
+    delta[k] ~ normal(0, 1);
+  }
+  for (n in 1:N) {
+    y[n] ~ normal(beta[g[n]], sigma);
+  }
+}</code></pre>
+<p>Instead of <code>beta</code>, we include <code>delta</code> in the <code>parameters</code> block, noted here as the non-centered group intercepts. To impose the deterministic transformation, we include a <code>transformed parameters</code> block, which includes both <code>beta</code> and the non-centered transformation itself <code>beta[k] = mu + tau * delta[k]</code>. Finally, in place of <code>beta</code>, the non-centered population model <code>delta[k] ~ normal(0, 1)</code> is included in the <code>model</code> block.</p>
 </div>
 <div id="multiple-hierarchical-regression" class="section level2">
 <h2>Multiple hierarchical regression</h2>
+<ul>
+<li>Add lower-level covariates <code>X</code>.</li>
+<li>Add upper-level covariates <code>Z</code>.</li>
+</ul>
 <hr />
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>

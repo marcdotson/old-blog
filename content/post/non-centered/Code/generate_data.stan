@@ -28,7 +28,8 @@ generated quantities {
   // }
   for (k in 1:K) {
     // for (i in 1:I) {
-    //   Beta[k, i] = normal_rng(Z[k,] * Gamma[,i], tau);
+    //   // Beta[k, i] = normal_rng(Z[k,] * Gamma[,i], tau);
+    //   Beta[k, i] = normal_rng(mu, tau);
     // }
     beta[k] = normal_rng(mu, tau);
   }
