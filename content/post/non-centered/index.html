@@ -1,25 +1,25 @@
 ---
 title: "Non-centered parameterization for hierarchical models"
 author: "Marc Dotson"
-date: '2020-03-01'
+date: '2020-03-15'
 slug: non-centered
 ---
 
 
 
-<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, which is true independent of sampler, we were able to initially fix the problem by more carefully navigating the posterior with a smaller step size.</p>
-<p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough of a non-centered parameterization for hierarchical Bayesian models in Stan.</p>
+<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, we were able to initially fix the problem by more carefully navigating the posterior with a smaller step size.</p>
+<p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough of implementing a non-centered parameterization for a standard hierarchical linear Bayesian model in Stan.</p>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
-<p>Our assumed error is <code>delta ~ normal(0, 1)</code> such that <code>beta = mu + tau * delta</code>. Following a centered parameterization, we can translate this into a population model and likelihood for a simple hierarchical regression as:</p>
+<p>The standard centered parameterization for a simple hierarchical regression has a population model and likelihood:</p>
 <pre><code>beta ~ normal(mu, tau)
 y ~ normal(beta, sigma)</code></pre>
-<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>beta</code>.</p>
-<p>On the other hand, following a non-centered parameterization, we can translate this into a population model and likelihood for a simple hierarchical regression as:</p>
+<p>where we get draws from the posterior distribution of <code>mu</code> and <code>tau</code>, the population mean and variance, and <code>beta</code>, the group-level intercepts.</p>
+<p>A non-centered parameterization re-expresses the population model and likelihood for a simple hierarchical regression as:</p>
 <pre><code>delta ~ normal(0, 1)
 beta = mu + tau * delta
 y ~ normal(beta, sigma)</code></pre>
-<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters. The benefit of a non-centered parameterization is including <code>delta</code> rather than <code>beta</code> in the posterior distribution since <code>beta</code> is often piece that complicates the posterior with difficult geometry.</p>
+<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters (note the <code>=</code> instead of <code>~</code> for <code>beta</code>). The benefit of a non-centered parameterization (i.e., the inclusion of the intermediate <code>delta</code> and the fixed transformation of <code>beta</code>) is that the dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.</p>
 </div>
 <div id="simple-hierarchical-regression" class="section level2">
 <h2>Simple hierarchical regression</h2>
