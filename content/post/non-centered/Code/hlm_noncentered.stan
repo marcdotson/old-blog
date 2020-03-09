@@ -27,7 +27,8 @@ transformed parameters {
 
   // Non-centered parameterization.
   for (k in 1:K) {
-    Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
+    // Beta[k,] = Z[k,] * Gamma + tau * Delta[k,];
+    Beta[k,] = mu + tau * Delta[k,];
   }
 }
 

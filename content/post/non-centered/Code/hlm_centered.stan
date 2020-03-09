@@ -34,7 +34,8 @@ model {
 
   // Population model and likelihood.
   for (k in 1:K) {
-    Beta[k,] ~ normal(Z[k,] * Gamma, tau);
+    // Beta[k,] ~ normal(Z[k,] * Gamma, tau);
+    Beta[k,] ~ normal(mu, tau);
   }
   for (n in 1:N) {
     y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);

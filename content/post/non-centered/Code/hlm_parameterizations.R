@@ -30,10 +30,10 @@ sim_values <- list(
   #   rep(1, 5),
   #   matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
   # ),
-  mu = 5,
+  mu = 8,
 
-  tau = 1,                            # Variance of the population model.
-  sigma = 1                           # Variance of the likelihood.
+  tau = 3,                            # Variance of the population model.
+  sigma = 10                          # Variance of the likelihood.
 )
 
 # Generate data.
@@ -94,11 +94,20 @@ write_rds(
 fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
 
 # Check trace plots.
+beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
+for (i in 2:data$I) {
+  beta_temp <- str_c("Beta[", 1:data$K, ",", i, "]")
+  beta_string <- c(beta_string, beta_temp)
+}
 fit_centered %>%
   mcmc_trace(
-    pars = c("mu", "tau", str_c("Beta[", 1:data$K, "]"), "sigma"),
+    pars = c("mu", "tau", beta_string, "sigma"),
     n_warmup = 500,
-    facet_args = list(nrow = 5, labeller = label_parsed)
+    facet_args = list(
+      nrow = ceiling(length(c("mu", "tau", beta_string, "sigma")) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
   )
 
 # Recover hyperparameter and parameter values.

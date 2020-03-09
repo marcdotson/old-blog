@@ -7,7 +7,7 @@ slug: non-centered
 
 
 
-<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, we were able to initially fix the problem by more carefully navigating the posterior with a smaller step size.</p>
+<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, we were able to initially address the problem by more carefully navigating the posterior with a smaller step size.</p>
 <p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough of implementing a non-centered parameterization for a standard hierarchical linear Bayesian model in Stan.</p>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
@@ -19,7 +19,7 @@ y ~ normal(beta, sigma)</code></pre>
 <pre><code>delta ~ normal(0, 1)
 beta = mu + tau * delta
 y ~ normal(beta, sigma)</code></pre>
-<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters (note the <code>=</code> instead of <code>~</code> for <code>beta</code>). The benefit of a non-centered parameterization (i.e., the inclusion of the intermediate <code>delta</code> and the fixed transformation of <code>beta</code>) is that the dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.</p>
+<p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters (note that <code>beta =</code> instead of <code>beta ~</code>). The benefit of a non-centered parameterization (i.e., the inclusion of the intermediate <code>delta</code> and the fixed transformation of <code>beta</code>) is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.</p>
 </div>
 <div id="simple-hierarchical-regression" class="section level2">
 <h2>Simple hierarchical regression</h2>
@@ -72,9 +72,12 @@ model {
 </div>
 <div id="multiple-hierarchical-regression" class="section level2">
 <h2>Multiple hierarchical regression</h2>
+<p>Note that the need to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions introduced with covariates. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.</p>
 <ul>
-<li>Add lower-level covariates <code>X</code>.</li>
-<li>Add upper-level covariates <code>Z</code>.</li>
+<li>Under what conditions does NCP &gt; CP? CP &gt; NCP?</li>
+<li>Look at implementation for HMNL.</li>
+<li>Adding lower-level covariates <code>X</code> – why does this break NCP?</li>
+<li>Add upper-level covariates <code>Z</code> – why does this break NCP?</li>
 </ul>
 <hr />
 <div id="marc-dotson" class="section level3">
