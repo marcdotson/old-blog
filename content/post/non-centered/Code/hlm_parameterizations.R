@@ -162,6 +162,26 @@ fit_noncentered <- stan(
   seed = 42
 )
 
+# Plot divergences (i.e., Delta on tau).
+mcmc_scatter(fit_noncentered, pars = c("Delta", "tau"))
+
+
+as.matrix(fit_noncentered) %>%
+  mcmc_scatter(
+    pars = c("Delta", "tau"),
+    np = nuts_params(fit_noncentered),
+    np_style = scatter_style_np(div_color = "green", div_alpha = 0.5)
+  )
+
+as.matrix(fit) %>%
+  mcmc_scatter(
+    pars = c("beta[1]", "beta[2]"),
+    np = nuts_params(fit),
+    np_style = scatter_style_np(div_color = "green", div_alpha = 0.5)
+  )
+)
+
+
 # Save model run.
 write_rds(
   fit_noncentered,

@@ -1,7 +1,7 @@
 ---
 title: "Non-centered parameterization for hierarchical models"
 author: "Marc Dotson"
-date: '2020-03-15'
+date: '2020-05-15'
 slug: non-centered
 ---
 
@@ -28,7 +28,7 @@ beta = mu + tau * delta
 y ~ normal(beta, sigma)
 ```
 
-where we get draws from the posterior distribution of `mu`, `tau`, and `delta`, since `beta` is now a fixed transformation of the other parameters (note that `beta =` instead of `beta ~`). The benefit of a non-centered parameterization (i.e., the inclusion of the intermediate `delta` and the fixed transformation of `beta`) is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.
+where we get draws from the posterior distribution of `mu`, `tau`, and `delta`, since `beta` is now a fixed transformation of the other parameters (i.e., we have `beta =` instead of `beta ~`). The benefit of a non-centered parameterization -- the inclusion of the intermediate `delta` and the fixed transformation of `beta` -- is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.
 
 ## Simple hierarchical regression
 
@@ -87,8 +87,9 @@ Instead of `beta`, we include `delta` in the `parameters` block, noted here as t
 
 Note that the need to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions introduced with covariates. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.
 
-- Under what conditions does NCP > CP? CP > NCP?
+- Plot Delta on tau to see where the divergences are appearing (may need to run longer chains to get better plots).
 - Look at implementation for HMNL.
+- Under what conditions does NCP > CP? CP > NCP?
 - Adding lower-level covariates `X` -- why does this break NCP?
 - Add upper-level covariates `Z` -- why does this break NCP?
 
