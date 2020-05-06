@@ -156,9 +156,11 @@ data <- list(
 )
 
 fit_noncentered <- stan(
-  file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
+  # file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
+  file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered-test.stan"),
   data = data,
-  control = list(adapt_delta = 0.99),
+  # control = list(adapt_delta = 0.99),
+  control = list(adapt_delta = 0.99, max_treedepth = 50),
   seed = 42
 )
 
