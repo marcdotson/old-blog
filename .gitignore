@@ -5,3 +5,6 @@
 .Ruserdata
 public/
 .DS_Store
+
+# RDS Data.
+*.rds
