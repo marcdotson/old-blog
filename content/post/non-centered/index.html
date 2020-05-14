@@ -7,17 +7,61 @@ slug: non-centered
 
 
 
-<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models inherently have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that can be difficult to navigate</a>, we were able to initially address this problem by more carefully navigating the posterior with a smaller step size.</p>
+<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models inherently have <a href="https://arxiv.org/abs/1312.0906">posteriors with geometry that can be difficult to navigate</a>, we were able to initially address this problem by more carefully navigating the posterior with a smaller step size.</p>
 <p>However, as a hierarchical model becomes more complicated, we need to re-express it in a way that is mathematically equivalent yet results in a posterior that is easier to navigate. We ended that previous post without relaxing the assumption of a common variance in the upper-level population model. In this post, we will build a hierarchical linear model with a multivariate population model. This added complexity will require us to re-express the model using what is known as a non-centered parameterization. Since this more flexible population model specification is standard, so should a non-centered parameterization be our default approach in most applications. Once again, I am in debt to Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, and the <a href="https://mc-stan.org/docs/2_23/stan-users-guide/index.html">Stan User’s Guide</a>.</p>
 <div id="multivariate-population-model" class="section level2">
 <h2>Multivariate population model</h2>
-<ul>
-<li>Motivate this model specification.</li>
-<li>Replace <code>tau</code> with a covariance matrix and draw <code>Beta</code> with a multivariate normal.</li>
-</ul>
-<p>The motivation for hierarchical models was to allow there to be differences in groups, to strike the balance between no pooling and complete pooling. However, so far we have only allowed this for the means. What about the variances? What about the need for a covariance matrix? Assuming independence removes flexibility and serves as a much stricter assumption.</p>
-<p>The standard deviation parameter adapts the amount of pooling across units…</p>
+<p>Recall that the motivation for hierarchical models is to allow for differences across groups while employing partial pooling, striking a balance between no pooling and complete pooling. However, so far we have assumed a common variance in the population model, limiting how much partial information pooling is possible. By moving to a multivariate population model, we allow for more partial information pooling, where each group-level parameter probability can now be associated with every other group-level parameter probability.</p>
+<p>Covariance matrices can be difficult to work with, especially when it comes to setting a prior (or, in our case, a hyperprior). A popular approach is to break down the covariance matrix into component pieces. Perhaps the most intuitive decomposition is to break down the covariance matrix into variances and a correlation matrix. If we have a covariance matrix <code>Sigma</code>, this decomposition works as follows:</p>
+<pre><code>Sigma = diag_matrix(tau) * Omega * diag_matrix(tau)</code></pre>
+<p>where <code>tau</code> is a vector of scale parameters and <code>Omega</code> is a correlation matrix. Not only is this decomposition computationally more tractable, but it allows us to set a prior on <code>tau</code> and <code>Omega</code> separately rather than on <code>Sigma</code> directly.</p>
+<p>What does this model look like in Stan?</p>
+<pre class="stan"><code>// Index values, observations, and covariates.
+data {
+  int&lt;lower = 1&gt; N;               // Number of observations.
+  int&lt;lower = 1&gt; K;               // Number of groups.
+  int&lt;lower = 1&gt; I;               // Number of observation-level covariates.
+  int&lt;lower = 1&gt; J;               // Number of population-level covariates.
+
+  vector[N] y;                    // Vector of observations.
+  int&lt;lower = 1, upper = K&gt; g[N]; // Vector of group assignments.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[K, J] Z;                 // Matrix of population-level covariates.
+}
+
+// Parameters and hyperparameters.
+parameters {
+  matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  corr_matrix[I] Omega;           // Correlation matrix for the population model.
+  vector&lt;lower = 0&gt;[I] tau;       // Vector of scale parameters for the population model.
+  matrix[K, I] Beta;              // Matrix of observation-level coefficients.
+  real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
+}
+
+// Hierarchical regression.
+model {
+  // Hyperpriors.
+  for (j in 1:J) {
+    Gamma[j,] ~ normal(0, 5);
+  }
+  Omega ~ lkj_corr(2);
+  tau ~ normal(0, 5);
+
+  // Prior.
+  sigma ~ normal(0, 5);
+
+  // Population model and likelihood.
+  for (k in 1:K) {
+    Beta[k,] ~ multi_normal(Z[k,] * Gamma, quad_form_diag(Omega, tau));
+  }
+  for (n in 1:N) {
+    y[n] ~ normal(X[n,] * Beta[g[n],]&#39;, sigma);
+  }
+}</code></pre>
+<p>In the <code>parameters</code> block, we now have a correlation matrix <code>Omega</code> and <code>tau</code> is now a vector of scale parameters rather than a scalar. In the <code>models</code> block, <code>Omega</code> is distributed according to the LKJ distribution, a Beta-like distribution for correlation matrices. Additionally, <code>Beta</code> is now distributed multivariate normal, with the covariance matrix a recombination of <code>Omega</code> and <code>tau</code> as described above.</p>
+<p>Since all Bayesain models are generative, we can translate this Stan script, <code>hlm_centered.stan</code> into <code>data</code> and <code>generated quantities</code> blocks called <code>generate_data.stan</code> to use Stan to generate data for us.</p>
 <pre class="stan"><code></code></pre>
+<p>Running this model gives us an excess of 4,000 divergent transitions…</p>
 </div>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
@@ -82,6 +126,7 @@ model {
 <div id="multiple-hierarchical-regression" class="section level3">
 <h3>Multiple hierarchical regression</h3>
 <p>Note that the need to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions introduced with covariates. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.</p>
+<p>Conclude with a discussion on efficiency…</p>
 <ul>
 <li><p>Respond to Stan Discourse reply and include variance parameters (reference Stan User’s Guide).</p></li>
 <li><p>Plot Delta on tau to see where the divergences are appearing (may need to run longer chains to get better plots).</p></li>

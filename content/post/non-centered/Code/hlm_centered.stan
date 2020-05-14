@@ -14,7 +14,8 @@ data {
 // Parameters and hyperparameters.
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  real<lower = 0> tau;            // Variance of the population model.
+  corr_matrix[I] Omega;           // Correlation matrix for the population model covariance matrix.
+  vector<lower = 0>[I] tau;       // Vector of scale parameters for the population model covariance matrix.
   matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
@@ -25,6 +26,7 @@ model {
   for (j in 1:J) {
     Gamma[j,] ~ normal(0, 5);
   }
+  Omega ~ lkj_corr(2);
   tau ~ normal(0, 5);
 
   // Prior.
@@ -32,7 +34,7 @@ model {
 
   // Population model and likelihood.
   for (k in 1:K) {
-    Beta[k,] ~ normal(Z[k,] * Gamma, tau);
+    Beta[k,] ~ multi_normal(Z[k,] * Gamma, quad_form_diag(Omega, tau));
   }
   for (n in 1:N) {
     y[n] ~ normal(X[n,] * Beta[g[n],]', sigma);
