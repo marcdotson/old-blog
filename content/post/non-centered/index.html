@@ -7,8 +7,18 @@ slug: non-centered
 
 
 
-<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to building hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that is difficult to navigate</a>, we were able to initially address the problem by more carefully navigating the posterior with a smaller step size.</p>
-<p>However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> by providing a walkthrough of implementing a non-centered parameterization for a standard hierarchical linear Bayesian model in Stan.</p>
+<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models inherently have posteriors with <a href="https://arxiv.org/abs/1312.0906">geometry that can be difficult to navigate</a>, we were able to initially address this problem by more carefully navigating the posterior with a smaller step size.</p>
+<p>However, as a hierarchical model becomes more complicated, we need to re-express it in a way that is mathematically equivalent yet results in a posterior that is easier to navigate. We ended that previous post without relaxing the assumption of a common variance in the upper-level population model. In this post, we will build a hierarchical linear model with a multivariate population model. This added complexity will require us to re-express the model using what is known as a non-centered parameterization. Since this more flexible population model specification is standard, so should a non-centered parameterization be our default approach in most applications. Once again, I am in debt to Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, and the <a href="https://mc-stan.org/docs/2_23/stan-users-guide/index.html">Stan User’s Guide</a>.</p>
+<div id="multivariate-population-model" class="section level2">
+<h2>Multivariate population model</h2>
+<ul>
+<li>Motivate this model specification.</li>
+<li>Replace <code>tau</code> with a covariance matrix and draw <code>Beta</code> with a multivariate normal.</li>
+</ul>
+<p>The motivation for hierarchical models was to allow there to be differences in groups, to strike the balance between no pooling and complete pooling. However, so far we have only allowed this for the means. What about the variances? What about the need for a covariance matrix? Assuming independence removes flexibility and serves as a much stricter assumption.</p>
+<p>The standard deviation parameter adapts the amount of pooling across units…</p>
+<pre class="stan"><code></code></pre>
+</div>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
 <p>The standard centered parameterization for a simple hierarchical regression has a population model and likelihood:</p>
@@ -20,9 +30,8 @@ y ~ normal(beta, sigma)</code></pre>
 beta = mu + tau * delta
 y ~ normal(beta, sigma)</code></pre>
 <p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters (i.e., we have <code>beta =</code> instead of <code>beta ~</code>). The benefit of a non-centered parameterization – the inclusion of the intermediate <code>delta</code> and the fixed transformation of <code>beta</code> – is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.</p>
-</div>
-<div id="simple-hierarchical-regression" class="section level2">
-<h2>Simple hierarchical regression</h2>
+<div id="simple-hierarchical-regression" class="section level3">
+<h3>Simple hierarchical regression</h3>
 <p>Let’s start by demonstrating how to implement a non-centered parameterization for a simple hierarchical regression.</p>
 <pre class="stan"><code>// Index values and observations.
 data {
@@ -70,18 +79,20 @@ model {
 }</code></pre>
 <p>Instead of <code>beta</code>, we include <code>delta</code> in the <code>parameters</code> block, noted here as the non-centered group intercepts. To impose the deterministic transformation, we include a <code>transformed parameters</code> block, which includes both <code>beta</code> and the non-centered transformation itself <code>beta[k] = mu + tau * delta[k]</code>. Finally, in place of <code>beta</code>, the non-centered population model <code>delta[k] ~ normal(0, 1)</code> is included in the <code>model</code> block.</p>
 </div>
-<div id="multiple-hierarchical-regression" class="section level2">
-<h2>Multiple hierarchical regression</h2>
+<div id="multiple-hierarchical-regression" class="section level3">
+<h3>Multiple hierarchical regression</h3>
 <p>Note that the need to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions introduced with covariates. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.</p>
 <ul>
 <li><p>Respond to Stan Discourse reply and include variance parameters (reference Stan User’s Guide).</p></li>
 <li><p>Plot Delta on tau to see where the divergences are appearing (may need to run longer chains to get better plots).</p></li>
+<li><p>Worry about indexing efficiency (i.e., arrays instead of matrices)? Pre-computing X’Beta with a local variable assignment? See Stan User’s Guide on Hierarchical Logistic Regression.</p></li>
 <li><p>Look at implementation for HMNL?</p></li>
 <li><p>Under what conditions does NCP &gt; CP? CP &gt; NCP?</p></li>
 <li><p>Adding lower-level covariates <code>X</code> – why does this break NCP?</p></li>
 <li><p>Adding upper-level covariates <code>Z</code> – why does this break NCP?</p></li>
 </ul>
 <hr />
+</div>
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>
 <p>Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on <a href="https://twitter.com/marcdotson">Twitter</a> and <a href="https://github.com/marcdotson">GitHub</a>.</p>

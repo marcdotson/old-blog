@@ -5,18 +5,22 @@ date: '2020-05-15'
 slug: non-centered
 ---
 
-- "change the prior on Beta to a multivariate normal" -- why?
-- Start with variance heterogeneity and reference it in the previous post?
+In a [previous post](https://www.occasionaldivergences.com/post/stan-hierarchical/), we provided a gentle introduction to hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models inherently have posteriors with [geometry that can be difficult to navigate](https://arxiv.org/abs/1312.0906), we were able to initially address this problem by more carefully navigating the posterior with a smaller step size.
+
+However, as a hierarchical model becomes more complicated, we need to re-express it in a way that is mathematically equivalent yet results in a posterior that is easier to navigate. We ended that previous post without relaxing the assumption of a common variance in the upper-level population model. In this post, we will build a hierarchical linear model with a multivariate population model. This added complexity will require us to re-express the model using what is known as a non-centered parameterization. Since this more flexible population model specification is standard, so should a non-centered parameterization be our default approach in most applications. Once again, I am in debt to Michael Betancourt's [case studies](https://betanalpha.github.io/writing/), Richard McElreath's [*Statistical Rethinking*](https://xcelab.net/rm/statistical-rethinking/), and the [Stan User's Guide](https://mc-stan.org/docs/2_23/stan-users-guide/index.html).
+
+## Multivariate population model
+
+- Motivate this model specification.
+- Replace `tau` with a covariance matrix and draw `Beta` with a multivariate normal.
 
 The motivation for hierarchical models was to allow there to be differences in groups, to strike the balance between no pooling and complete pooling. However, so far we have only allowed this for the means. What about the variances? What about the need for a covariance matrix? Assuming independence removes flexibility and serves as a much stricter assumption.
 
 The standard deviation parameter adapts the amount of pooling across units...
 
-- Position this as a part 2 or just a follow-up where we deal with variance heterogeneity and non-centered parameterizations?
+```{stan hlm-centered, output.var="hlm_centered", eval=FALSE}
 
-In a [previous post](https://www.occasionaldivergences.com/post/stan-hierarchical/), we provided a gentle introduction to building hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models have posteriors with [geometry that is difficult to navigate](https://arxiv.org/abs/1312.0906), we were able to initially address the problem by more carefully navigating the posterior with a smaller step size.
-
-However, the posterior geometry of hierarchical models typically requires a non-centered parameterization, expressing the same model in a different way to ease the navigation of the posterior. The goal of this post is to expand on that [previous post](https://www.occasionaldivergences.com/post/stan-hierarchical/) by providing a walkthrough of implementing a non-centered parameterization for a standard hierarchical linear Bayesian model in Stan.
+```
 
 ## Non-centered parameterization
 
@@ -39,7 +43,7 @@ y ~ normal(beta, sigma)
 
 where we get draws from the posterior distribution of `mu`, `tau`, and `delta`, since `beta` is now a fixed transformation of the other parameters (i.e., we have `beta =` instead of `beta ~`). The benefit of a non-centered parameterization -- the inclusion of the intermediate `delta` and the fixed transformation of `beta` -- is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.
 
-## Simple hierarchical regression
+### Simple hierarchical regression
 
 Let's start by demonstrating how to implement a non-centered parameterization for a simple hierarchical regression.
 
@@ -92,7 +96,7 @@ model {
 
 Instead of `beta`, we include `delta` in the `parameters` block, noted here as the non-centered group intercepts. To impose the deterministic transformation, we include a `transformed parameters` block, which includes both `beta` and the non-centered transformation itself `beta[k] = mu + tau * delta[k]`. Finally, in place of `beta`, the non-centered population model `delta[k] ~ normal(0, 1)` is included in the `model` block.
 
-## Multiple hierarchical regression
+### Multiple hierarchical regression
 
 Note that the need to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions introduced with covariates. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.
 
