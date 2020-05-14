@@ -11,7 +11,7 @@ Jeff started it. He didn't know what Bayesian inference was, but he was interest
 
 ## Jeff Dotson
 
-Jeff is an associate professor of marketing at the BYU Marriott School of Business where he teaches courses in pricing strategies, marketing research, and marketing analytics. Prior to joining the faculty at BYU, he worked as an assistant professor in the Owen Graduate School of Management at Vanderbilt University. He holds a PhD in Marketing from The Ohio State University and masters degrees in business administration (MBA) and statistics (MS) from the University of Utah. His research focuses on the development and application of Bayesian statistical methods to a variety of marketing problems.
+Jeff is a professor of marketing at the BYU Marriott School of Business where he teaches courses in pricing strategies, marketing research, and marketing analytics. Prior to joining the faculty at BYU, he worked as an assistant professor in the Owen Graduate School of Management at Vanderbilt University. He holds a PhD in Marketing from The Ohio State University and masters degrees in business administration (MBA) and statistics (MS) from the University of Utah. His research focuses on the development and application of Bayesian statistical methods to a variety of marketing problems.
 
 - [Twitter](https://twitter.com/jdotson77)
 - [GitHub](https://github.com/jeff-dotson)
