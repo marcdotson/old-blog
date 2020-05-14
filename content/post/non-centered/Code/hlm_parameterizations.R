@@ -2,7 +2,7 @@
 # Load packages.
 library(tidyverse)
 library(rstan)
-library(loo)
+# library(loo)
 library(bayesplot)
 library(tidybayes)
 
@@ -16,8 +16,7 @@ sim_values <- list(
   N = 500,                            # Number of observations.
   K = 5,                              # Number of groups.
   I = 7,                              # Number of observation-level covariates.
-  # J = 3,                              # Number of population-level covariates.
-  g = sample(5, 500, replace = TRUE), # Vector of group assignments.
+  J = 3,                              # Number of population-level covariates.
 
   # Matrix of observation-level covariates.
   X = cbind(
@@ -26,14 +25,14 @@ sim_values <- list(
   ),
 
   # Matrix of population-level covariates.
-  # Z = cbind(
-  #   rep(1, 5),
-  #   matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
-  # ),
-  mu = 8,
+  Z = cbind(
+    rep(1, 5),
+    matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
+  ),
 
-  tau = 3,                            # Variance of the population model.
-  sigma = 10                          # Variance of the likelihood.
+  g = sample(5, 500, replace = TRUE), # Vector of group assignments.
+  tau = 1,                            # Variance of the population model.
+  sigma = 1                           # Variance of the likelihood.
 )
 
 # Generate data.
@@ -46,23 +45,23 @@ sim_data <- stan(
   algorithm = "Fixed_param"
 )
 
-# Save simulation values and data.
-write_rds(
-  sim_values,
-  path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
-)
-write_rds(
-  sim_data,
-  path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
-)
-
-# Load simulation values and data.
-sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values.rds"))
-sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data.rds"))
+# # Save simulation values and data.
+# write_rds(
+#   sim_values,
+#   path = here::here("content", "post", "non-centered", "Data", "sim_values.rds")
+# )
+# write_rds(
+#   sim_data,
+#   path = here::here("content", "post", "non-centered", "Data", "sim_data.rds")
+# )
+#
+# # Load simulation values and data.
+# sim_values <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_values.rds"))
+# sim_data <- read_rds(here::here("content", "post", "non-centered", "Data", "sim_data.rds"))
 
 # Extract simulated data and group intercepts.
 sim_y <- extract(sim_data)$y
-# sim_Gamma <- extract(sim_data)$Gamma
+sim_Gamma <- extract(sim_data)$Gamma
 sim_Beta <- extract(sim_data)$Beta
 
 # Fit Centered Parameterization -------------------------------------------
@@ -84,14 +83,14 @@ fit_centered <- stan(
   seed = 42
 )
 
-# Save model run.
-write_rds(
-  fit_centered,
-  path = here::here("content", "post", "non-centered", "Output", "fit_centered.rds")
-)
-
-# Load model run.
-fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
+# # Save model run.
+# write_rds(
+#   fit_centered,
+#   path = here::here("content", "post", "non-centered", "Output", "fit_centered.rds")
+# )
+#
+# # Load model run.
+# fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
 
 # Check trace plots.
 beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
@@ -164,8 +163,8 @@ fit_noncentered <- stan(
   seed = 42
 )
 
-# Plot divergences (i.e., Delta on tau).
-mcmc_scatter(fit_noncentered, pars = c("Delta", "tau"))
+# # Plot divergences (i.e., Delta on tau).
+# mcmc_scatter(fit_noncentered, pars = c("Delta", "tau"))
 
 
 as.matrix(fit_noncentered) %>%
@@ -184,11 +183,11 @@ as.matrix(fit) %>%
 )
 
 
-# Save model run.
-write_rds(
-  fit_noncentered,
-  path = here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds")
-)
+# # Save model run.
+# write_rds(
+#   fit_noncentered,
+#   path = here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds")
+# )
 
 # Check trace plots.
 fit_noncentered %>%
@@ -231,27 +230,27 @@ fit_noncentered %>%
     scales = "free"
   )
 
-# Compute Model Fit -------------------------------------------------------
-# Load model runs.
-fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
-fit_noncentered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
-
-# Centered parameterization.
-log_lik_centered <- extract_log_lik(fit_centered, merge_chains = FALSE)
-r_eff_centered <- relative_eff(exp(log_lik_centered))
-loo(log_lik_centered, r_eff = r_eff_centered)
-loo(fit_centered, save_psis = TRUE)
-
-loo_centered <- loo(fit_centered, save_psis = TRUE)
-
-# Non-centered parameterization.
-log_lik_noncentered <- extract_log_lik(fit_noncentered, merge_chains = FALSE)
-r_eff_noncentered <- relative_eff(exp(log_lik_noncentered))
-loo(log_lik_noncentered, r_eff = r_eff_noncentered)
-loo(fit_noncentered, save_psis = TRUE)
-
-loo_noncentered <- loo(fit_noncentered, save_psis = TRUE)
-
-# Compare model fit.
-loo_compare(loo_centered, loo_noncentered)
+# # Compute Model Fit -------------------------------------------------------
+# # Load model runs.
+# fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
+# fit_noncentered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
+#
+# # Centered parameterization.
+# log_lik_centered <- extract_log_lik(fit_centered, merge_chains = FALSE)
+# r_eff_centered <- relative_eff(exp(log_lik_centered))
+# loo(log_lik_centered, r_eff = r_eff_centered)
+# loo(fit_centered, save_psis = TRUE)
+#
+# loo_centered <- loo(fit_centered, save_psis = TRUE)
+#
+# # Non-centered parameterization.
+# log_lik_noncentered <- extract_log_lik(fit_noncentered, merge_chains = FALSE)
+# r_eff_noncentered <- relative_eff(exp(log_lik_noncentered))
+# loo(log_lik_noncentered, r_eff = r_eff_noncentered)
+# loo(fit_noncentered, save_psis = TRUE)
+#
+# loo_noncentered <- loo(fit_noncentered, save_psis = TRUE)
+#
+# # Compare model fit.
+# loo_compare(loo_centered, loo_noncentered)
 
