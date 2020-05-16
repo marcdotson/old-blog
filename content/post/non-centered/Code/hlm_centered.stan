@@ -14,8 +14,8 @@ data {
 // Parameters and hyperparameters.
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model covariance matrix.
-  vector<lower = 0>[I] tau;       // Vector of scale parameters for the population model covariance matrix.
+  corr_matrix[I] Omega;           // Correlation matrix for the population model.
+  vector<lower = 0>[I] tau;       // Vector of scale parameters for the population model.
   matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }

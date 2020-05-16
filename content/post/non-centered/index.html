@@ -57,11 +57,132 @@ model {
   for (n in 1:N) {
     y[n] ~ normal(X[n,] * Beta[g[n],]&#39;, sigma);
   }
+}
+
+// Quantities conditioned on parameter draws.
+generated quantities {
+  // Log likelihood to estimate loo.
+  vector[N] log_lik;
+  for (n in 1:N) {
+    log_lik[n] = normal_lpdf(y[n] | X[n,] * Beta[g[n],]&#39;, sigma);
+  }
 }</code></pre>
-<p>In the <code>parameters</code> block, we now have a correlation matrix <code>Omega</code> and <code>tau</code> is now a vector of scale parameters rather than a scalar. In the <code>models</code> block, <code>Omega</code> is distributed according to the LKJ distribution, a Beta-like distribution for correlation matrices. Additionally, <code>Beta</code> is now distributed multivariate normal, with the covariance matrix a recombination of <code>Omega</code> and <code>tau</code> as described above.</p>
-<p>Since all Bayesain models are generative, we can translate this Stan script, <code>hlm_centered.stan</code> into <code>data</code> and <code>generated quantities</code> blocks called <code>generate_data.stan</code> to use Stan to generate data for us.</p>
-<pre class="stan"><code></code></pre>
-<p>Running this model gives us an excess of 4,000 divergent transitions…</p>
+<p>We’ll save this Stan script of a hierarchical linear model as <code>hlm_centered.stan</code> (we’ll explain the “centered” part shortly). In the <code>parameters</code> block, we now have a correlation matrix <code>Omega</code> and <code>tau</code> is now a vector of scale parameters rather than a scalar. In the <code>models</code> block, <code>Omega</code> is distributed according to the LKJ distribution, a Beta-like distribution for correlation matrices. Additionally, <code>Beta</code> is now distributed multivariate normal, with the covariance matrix a recombination of <code>Omega</code> and <code>tau</code> as described above.</p>
+<p>Since all Bayesian models are generative, we can translate this Stan script, , into <code>data</code> and <code>generated quantities</code> to use Stan to generate data for us.</p>
+<pre class="stan"><code>// Index values, covariates, and hyperparameter values.
+data {
+  int&lt;lower = 1&gt; N;               // Number of observations.
+  int&lt;lower = 1&gt; K;               // Number of groups.
+  int&lt;lower = 1&gt; I;               // Number of observation-level covariates.
+  int&lt;lower = 1&gt; J;               // Number of population-level covariates.
+
+  int&lt;lower = 1, upper = K&gt; g[N]; // Vector of group assignments.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[K, J] Z;                 // Matrix of population-level covariates.
+}
+
+// Generate data according to the hierarchical regression.
+generated quantities {
+  vector[N] y;                    // Vector of observations.
+  matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  corr_matrix[I] Omega;           // Correlation matrix for the population model.
+  vector[I] tau;                  // Vector of scale parameters for the population model.
+  matrix[K, I] Beta;              // Matrix of group-level coefficients.
+  real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
+
+  // Draw parameter values and generate data.
+  for (j in 1:J) {
+    for (i in 1:I) {
+      Gamma[j, i] = normal_rng(0, 5);
+    }
+  }
+  Omega = lkj_corr_rng(I, 2);
+  for (i in 1:I) {
+    tau[i] = chi_square_rng(2);
+  }
+  for (k in 1:K) {
+    Beta[k,] = multi_normal_rng(Z[k,] * Gamma, quad_form_diag(Omega, tau))&#39;;
+  }
+  sigma = normal_rng(0, 5);
+  for (n in 1:N) {
+    y[n] = normal_rng(X[n,] * Beta[g[n],]&#39;, sigma);
+  }
+}</code></pre>
+<p>We call this Stan script <code>generate_data.stan</code>. Note:</p>
+<ul>
+<li>Generate parameter values, including LKJ prior.</li>
+<li>Transpose multivariate normal draw.</li>
+</ul>
+<p>In an R script, let’s load the necessary packages, allow Stan to use as many cores as we have available, allow for Stan to save compiled code, specify assumed parameter values, and generate data according to our hierarchical linear model by calling <code>generate_data.stan</code>.</p>
+<pre class="r"><code># Load packages.
+library(tidyverse)
+library(rstan)
+library(bayesplot)
+library(tidybayes)
+
+# Set Stan options.
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Specify data and hyperparameter values.
+sim_values &lt;- list(
+  N = 500,                            # Number of observations.
+  K = 5,                              # Number of groups.
+  I = 7,                              # Number of observation-level covariates.
+  J = 3,                              # Number of population-level covariates.
+
+  # Matrix of observation-level covariates.
+  X = cbind(
+    rep(1, 500),
+    matrix(runif(500 * (7 - 1), min = 1, max = 10), nrow = 500)
+  ),
+
+  # Matrix of population-level covariates.
+  Z = cbind(
+    rep(1, 5),
+    matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
+  ),
+
+  # Vector of group assignments.
+  g = sample(5, 500, replace = TRUE)
+)
+
+# Generate data.
+sim_data &lt;- stan(
+  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;non-centered&quot;, &quot;Code&quot;, &quot;generate_data.stan&quot;),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = &quot;Fixed_param&quot;
+)
+
+# Extract simulated data and parameters.
+sim_y &lt;- extract(sim_data)$y
+sim_Gamma &lt;- extract(sim_data)$Gamma
+sim_Omega &lt;- extract(sim_data)$Omega
+sim_tau &lt;- extract(sim_data)$tau
+sim_Beta &lt;- extract(sim_data)$Beta
+sim_sigma &lt;- extract(sim_data)$sigma
+
+data &lt;- list(
+  N = sim_values$N,     # Number of observations.
+  K = sim_values$K,     # Number of groups.
+  I = sim_values$I,     # Number of observation-level covariates.
+  J = sim_values$J,     # Number of population-level covariates.
+  y = as.vector(sim_y), # Vector of observations.
+  g = sim_values$g,     # Vector of group assignments.
+  X = sim_values$X,     # Matrix of observation-level covariates.
+  Z = sim_values$Z      # Matrix of population-level covariates.
+)
+
+fit_centered &lt;- stan(
+  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;non-centered&quot;, &quot;Code&quot;, &quot;hlm_centered.stan&quot;),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)</code></pre>
+<p>Running this model gives us an excess of 3,500 divergent transitions…</p>
 </div>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
@@ -74,6 +195,7 @@ y ~ normal(beta, sigma)</code></pre>
 beta = mu + tau * delta
 y ~ normal(beta, sigma)</code></pre>
 <p>where we get draws from the posterior distribution of <code>mu</code>, <code>tau</code>, and <code>delta</code>, since <code>beta</code> is now a fixed transformation of the other parameters (i.e., we have <code>beta =</code> instead of <code>beta ~</code>). The benefit of a non-centered parameterization – the inclusion of the intermediate <code>delta</code> and the fixed transformation of <code>beta</code> – is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.</p>
+<pre class="stan"><code></code></pre>
 <div id="simple-hierarchical-regression" class="section level3">
 <h3>Simple hierarchical regression</h3>
 <p>Let’s start by demonstrating how to implement a non-centered parameterization for a simple hierarchical regression.</p>
