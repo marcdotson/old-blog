@@ -2,7 +2,6 @@
 # Load packages.
 library(tidyverse)
 library(rstan)
-# library(loo)
 library(bayesplot)
 library(tidybayes)
 
@@ -106,101 +105,273 @@ data <- list(
   Z = sim_values$Z      # Matrix of population-level covariates.
 )
 
-fit_centered <- stan(
+fit_noncentered <- stan(
   file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
   data = data,
+  iter = 10000,
+  thin = 5,
   control = list(adapt_delta = 0.99),
+  # control = list(adapt_delta = 0.99, max_treedepth = 15),
   seed = 42
 )
 
 # Save model run.
 write_rds(
-  fit_centered,
+  fit_noncentered,
   path = here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds")
 )
 
 # Load model run.
-fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
+fit_noncentered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
 
-# Check trace plots.
+# Check population model trace plots.
+gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
+omega_string <- str_c("Omega[", 1:data$I, ",", 1, "]")
+tau_string <- str_c("tau[", 1:data$I, "]")
+for (i in 2:data$I) {
+  gamma_temp <- str_c("Gamma[", 1:data$J, ",", i, "]")
+  gamma_string <- c(gamma_string, gamma_temp)
+  omega_temp <- str_c("Omega[", 1:data$I, ",", i, "]")
+  omega_string <- c(omega_string, omega_temp)
+}
+
+# Gamma.
+fit_noncentered %>%
+  mcmc_trace(
+    pars = gamma_string,
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(gamma_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-gamma.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 8, height = 8, units = "in"
+)
+
+# Omega.
+fit_noncentered %>%
+  mcmc_trace(
+    pars = omega_string,
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(omega_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-omega.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 8, height = 16, units = "in"
+)
+
+# tau.
+fit_noncentered %>%
+  mcmc_trace(
+    pars = tau_string,
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(tau_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-tau.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 8, height = 4, units = "in"
+)
+
+# Check observation model trace plots.
 beta_string <- str_c("Beta[", 1:data$K, ",", 1, "]")
 for (i in 2:data$I) {
   beta_temp <- str_c("Beta[", 1:data$K, ",", i, "]")
   beta_string <- c(beta_string, beta_temp)
 }
 
+# Beta and sigma.
 fit_noncentered %>%
   mcmc_trace(
-    pars = c("mu", "tau", beta_string, "sigma"),
+    pars = c(beta_string, "sigma"),
     n_warmup = 500,
     facet_args = list(
-      nrow = ceiling(length(c("mu", "tau", beta_string, "sigma")) / 4),
+      nrow = ceiling(length(c(beta_string, "sigma")) / 4),
       ncol = 4,
       labeller = label_parsed
     )
   )
 
-# fit_noncentered %>%
-#   mcmc_trace(
-#     pars = c("mu", "tau", str_c("Beta[", 1:data$K, "]"), "sigma"),
-#     n_warmup = 500,
-#     facet_args = list(nrow = 5, labeller = label_parsed)
-#   )
-
-# Recover hyperparameter and parameter values.
-hyper_par_values <- tibble(
-  .variable = c("mu", "tau", "sigma"),
-  values = c(sim_values$mu, sim_values$tau, sim_values$sigma),
+ggsave(
+  "mcmc_trace-beta_sigma.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 8, height = 12, units = "in"
 )
 
-beta_values <- tibble(
-  n = 1:data$K,
-  Beta = as.vector(sim_beta)
-)
+# Recover Gamma values.
+gamma_values <- tibble(
+  j = sort(rep(1:(data$J), data$I)),
+  i = rep(1:(data$I), data$J),
+  .variable = str_c("Gamma", "_", j, "_", i),
+  values = as.vector(t(matrix(sim_Gamma, ncol = data$I)))
+) %>%
+  select(.variable, values)
 
 fit_noncentered %>%
-  gather_draws(mu, tau, sigma) %>%
+  gather_draws(Gamma[j, i]) %>%
+  unite(.variable, .variable, j, i) %>%
   ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
-  geom_vline(aes(xintercept = values), hyper_par_values, color = "red") +
+  geom_vline(aes(xintercept = values), gamma_values, color = "red") +
   facet_wrap(
     ~ .variable,
-    nrow = 3,
+    nrow = data$J,
+    ncol = data$I,
     scales = "free"
   )
+
+ggsave(
+  "marginals-gamma.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 16, height = 8, units = "in"
+)
+
+# Recover Omega values.
+omega_values <- tibble(
+  j = sort(rep(1:(data$I), data$I)),
+  i = rep(1:(data$I), data$I),
+  .variable = str_c("Omega", "_", j, "_", i),
+  values = as.vector(t(matrix(sim_Omega, ncol = data$I)))
+) %>%
+  select(.variable, values)
 
 fit_noncentered %>%
-  spread_draws(Beta[n]) %>%
-  ggplot(aes(x = Beta, y = n)) +
+  gather_draws(Omega[j, i]) %>%
+  unite(.variable, .variable, j, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
   geom_halfeyeh(.width = .95) +
-  geom_vline(aes(xintercept = Beta), beta_values, color = "red") +
+  geom_vline(aes(xintercept = values), omega_values, color = "red") +
   facet_wrap(
-    ~ n,
-    nrow = 3,
+    ~ .variable,
+    nrow = data$I,
+    ncol = data$I,
     scales = "free"
   )
 
-# # Compute Model Fit -------------------------------------------------------
-# # Load model runs.
-# fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
-# fit_noncentered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
-#
-# # Centered parameterization.
-# log_lik_centered <- extract_log_lik(fit_centered, merge_chains = FALSE)
-# r_eff_centered <- relative_eff(exp(log_lik_centered))
-# loo(log_lik_centered, r_eff = r_eff_centered)
-# loo(fit_centered, save_psis = TRUE)
-#
-# loo_centered <- loo(fit_centered, save_psis = TRUE)
-#
-# # Non-centered parameterization.
-# log_lik_noncentered <- extract_log_lik(fit_noncentered, merge_chains = FALSE)
-# r_eff_noncentered <- relative_eff(exp(log_lik_noncentered))
-# loo(log_lik_noncentered, r_eff = r_eff_noncentered)
-# loo(fit_noncentered, save_psis = TRUE)
-#
-# loo_noncentered <- loo(fit_noncentered, save_psis = TRUE)
-#
-# # Compare model fit.
-# loo_compare(loo_centered, loo_noncentered)
+ggsave(
+  "marginals-omega.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 16, height = 8, units = "in"
+)
+
+# Recover tau values.
+tau_values <- tibble(
+  i = 1:(data$I),
+  .variable = str_c("tau", "_", i),
+  values = as.vector(sim_tau)
+) %>%
+  select(.variable, values)
+
+fit_noncentered %>%
+  gather_draws(tau[i]) %>%
+  unite(.variable, .variable, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), tau_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = ceiling(data$I / 4),
+    ncol = 4,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-tau.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 16, height = 8, units = "in"
+)
+
+# Recover Beta values.
+beta_values <- tibble(
+  n = sort(rep(1:(data$K), data$I)),
+  i = rep(1:(data$I), data$K),
+  .variable = str_c("Beta", "_", n, "_", i),
+  values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
+) %>%
+  select(.variable, values)
+
+fit_noncentered %>%
+  gather_draws(Beta[n, i]) %>%
+  unite(.variable, .variable, n, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), beta_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$K,
+    ncol = data$I,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-beta.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 16, height = 12, units = "in"
+)
+
+# Recover sigma value.
+sigma_values <- tibble(
+  .variable = "sigma",
+  values = sim_sigma,
+)
+
+fit_noncentered %>%
+  gather_draws(sigma) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), sigma_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    nrow = 1,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-sigma.png",
+  path = here::here("content", "post", "non-centered", "Figures"),
+  width = 4, height = 3, units = "in"
+)
+
+# Compute Model Fit -------------------------------------------------------
+# Load packages.
+library(loo)
+
+# Load model runs.
+fit_centered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_centered.rds"))
+fit_noncentered <- read_rds(here::here("content", "post", "non-centered", "Output", "fit_noncentered.rds"))
+
+# Centered parameterization.
+log_lik_centered <- extract_log_lik(fit_centered, merge_chains = FALSE)
+r_eff_centered <- relative_eff(exp(log_lik_centered))
+loo(log_lik_centered, r_eff = r_eff_centered)
+loo(fit_centered, save_psis = TRUE)
+
+loo_centered <- loo(fit_centered, save_psis = TRUE)
+
+# Non-centered parameterization.
+log_lik_noncentered <- extract_log_lik(fit_noncentered, merge_chains = FALSE)
+r_eff_noncentered <- relative_eff(exp(log_lik_noncentered))
+loo(log_lik_noncentered, r_eff = r_eff_noncentered)
+loo(fit_noncentered, save_psis = TRUE)
+
+loo_noncentered <- loo(fit_noncentered, save_psis = TRUE)
+
+# Compare model fit.
+loo_compare(loo_centered, loo_noncentered)
 

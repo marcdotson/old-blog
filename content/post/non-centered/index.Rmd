@@ -201,7 +201,7 @@ fit_centered <- stan(
 )
 ```
 
-Running this model gives us an excess of 3,500 divergent transitions...
+Running this model gives us over 100 divergent transitions...reminder of what a divergent transitions or divergences.
 
 ## Non-centered parameterization
 
