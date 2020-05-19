@@ -17,6 +17,9 @@ sim_values <- list(
   I = 7,                              # Number of observation-level covariates.
   J = 3,                              # Number of population-level covariates.
 
+  # Vector of group assignments.
+  g = sample(5, 500, replace = TRUE),
+
   # Matrix of observation-level covariates.
   X = cbind(
     rep(1, 500),
@@ -27,10 +30,7 @@ sim_values <- list(
   Z = cbind(
     rep(1, 5),
     matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
-  ),
-
-  # Vector of group assignments.
-  g = sample(5, 500, replace = TRUE)
+  )
 )
 
 # Generate data.
@@ -111,7 +111,6 @@ fit_noncentered <- stan(
   iter = 10000,
   thin = 5,
   control = list(adapt_delta = 0.99),
-  # control = list(adapt_delta = 0.99, max_treedepth = 15),
   seed = 42
 )
 
