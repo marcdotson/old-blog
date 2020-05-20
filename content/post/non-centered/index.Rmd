@@ -13,7 +13,7 @@ Once again, I am in debt to Michael Betancourt's [case studies](https://betanalp
 
 ## Multivariate population model
 
-Recall that the motivation for hierarchical models is to allow for differences across groups while employing partial pooling, striking a balance between no pooling (separate flat models for each group) and complete pooling (a single flat model). However, so far we have assumed a common variance in the population model, limiting how much partial information pooling is possible. By moving to a multivariate population model, we allow for more pooling where each group-level parameter probability can now be associated with every other group-level parameter probability through the covariance matrix.
+Recall that the motivation for hierarchical models is to allow for differences across groups while employing partial pooling, striking a balance between no pooling (separate flat models for each group) and complete pooling (a single flat model). However, so far we have assumed a common variance in the population model, limiting how much partial information pooling is possible. By moving to a multivariate population model, we allow for even more pooling through the covariance matrix.
 
 Covariance matrices can be difficult to work with, especially when it comes to setting a prior (or, in our case, a hyperprior). A helpful approach is to break down the covariance matrix into component pieces. Perhaps the most intuitive decomposition is to break down the covariance matrix into variances and a correlation matrix. If we have a covariance matrix `Sigma`, this decomposition works as follows:
 
@@ -42,8 +42,8 @@ data {
 // Parameters and hyperparameters.
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector<lower = 0>[I] tau;       // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector<lower = 0>[I] tau;       // Population model vector of scale parameters.
   matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
@@ -91,8 +91,8 @@ data {
 generated quantities {
   vector[N] y;                    // Vector of observations.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector[I] tau;                  // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector[I] tau;                  // Population model vector of scale parameters.
   matrix[K, I] Beta;              // Matrix of group-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 
@@ -156,7 +156,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "non-centered", "Code", "generate_data.stan"),
+  file = here::here("Code", "generate_data.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -184,7 +184,7 @@ data <- list(
 )
 
 fit_centered <- stan(
-  file = here::here("content", "post", "non-centered", "Code", "hlm_centered.stan"),
+  file = here::here("Code", "hlm_centered.stan"),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42
@@ -244,8 +244,8 @@ data {
 // Parameters and hyperparameters.
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector<lower = 0>[I] tau;       // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector<lower = 0>[I] tau;       // Population model vector of scale parameters.
   matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
@@ -289,7 +289,7 @@ We don't need to generated new data -- the generative model remains the same, it
 
 ```{r noncentered-model-calibration-01, eval=FALSE}
 fit_noncentered <- stan(
-  file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
+  file = here::here("Code", "hlm_noncentered.stan"),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42
@@ -310,7 +310,7 @@ Let's re-run the model.
 
 ```{r noncentered-model-calibration-02, eval=FALSE}
 fit_noncentered <- stan(
-  file = here::here("content", "post", "non-centered", "Code", "hlm_noncentered.stan"),
+  file = here::here("Code", "hlm_noncentered.stan"),
   data = data,
   iter = 10000,
   thin = 5,
@@ -557,6 +557,10 @@ Given that a hierarchical model with a multivariate population model should be o
 ### Marc Dotson
 
 Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on [Twitter](https://twitter.com/marcdotson) and [GitHub](https://github.com/marcdotson).
+
+
+
+
 
 
 

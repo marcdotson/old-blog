@@ -12,7 +12,7 @@ slug: non-centered
 <p>Once again, I am in debt to Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, the <a href="https://mc-stan.org/docs/2_23/stan-users-guide/index.html">Stan User’s Guide</a>, and <a href="https://discourse.mc-stan.org">Stan Discourse</a>.</p>
 <div id="multivariate-population-model" class="section level2">
 <h2>Multivariate population model</h2>
-<p>Recall that the motivation for hierarchical models is to allow for differences across groups while employing partial pooling, striking a balance between no pooling (separate flat models for each group) and complete pooling (a single flat model). However, so far we have assumed a common variance in the population model, limiting how much partial information pooling is possible. By moving to a multivariate population model, we allow for more pooling where each group-level parameter probability can now be associated with every other group-level parameter probability through the covariance matrix.</p>
+<p>Recall that the motivation for hierarchical models is to allow for differences across groups while employing partial pooling, striking a balance between no pooling (separate flat models for each group) and complete pooling (a single flat model). However, so far we have assumed a common variance in the population model, limiting how much partial information pooling is possible. By moving to a multivariate population model, we allow for even more pooling through the covariance matrix.</p>
 <p>Covariance matrices can be difficult to work with, especially when it comes to setting a prior (or, in our case, a hyperprior). A helpful approach is to break down the covariance matrix into component pieces. Perhaps the most intuitive decomposition is to break down the covariance matrix into variances and a correlation matrix. If we have a covariance matrix <code>Sigma</code>, this decomposition works as follows:</p>
 <pre><code>Sigma = diag_matrix(tau) * Omega * diag_matrix(tau)</code></pre>
 <p>where <code>tau</code> is a vector of scale parameters and <code>Omega</code> is a correlation matrix. Not only is this decomposition computationally more tractable, but it allows us to set a prior on <code>tau</code> and <code>Omega</code> separately rather than on <code>Sigma</code> directly.</p>
@@ -33,8 +33,8 @@ data {
 // Parameters and hyperparameters.
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector&lt;lower = 0&gt;[I] tau;       // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector&lt;lower = 0&gt;[I] tau;       // Population model vector of scale parameters.
   matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
 }
@@ -77,8 +77,8 @@ data {
 generated quantities {
   vector[N] y;                    // Vector of observations.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector[I] tau;                  // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector[I] tau;                  // Population model vector of scale parameters.
   matrix[K, I] Beta;              // Matrix of group-level coefficients.
   real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
 
@@ -137,7 +137,7 @@ sim_values &lt;- list(
 
 # Generate data.
 sim_data &lt;- stan(
-  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;non-centered&quot;, &quot;Code&quot;, &quot;generate_data.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;generate_data.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -165,7 +165,7 @@ data &lt;- list(
 )
 
 fit_centered &lt;- stan(
-  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;non-centered&quot;, &quot;Code&quot;, &quot;hlm_centered.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;hlm_centered.stan&quot;),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42
@@ -207,8 +207,8 @@ data {
 // Parameters and hyperparameters.
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector&lt;lower = 0&gt;[I] tau;       // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector&lt;lower = 0&gt;[I] tau;       // Population model vector of scale parameters.
   matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
 }
@@ -247,7 +247,7 @@ model {
 <p>The <code>parameters</code> block now contains <code>Delta</code> instead of <code>Beta</code>, the matrix of non-centered observation-level coefficients. We have an entirely new block <code>transformed parameters</code> that includes our specification of <code>Beta</code> and the deterministic transformation. Finally, the population model in the <code>model</code> block is replaced by a standard normal draw.</p>
 <p>We don’t need to generated new data – the generative model remains the same, it’s just been re-expressed with the reparameterization. Let’s call this new script, <code>hlm_noncentered.stan</code> from R.</p>
 <pre class="r"><code>fit_noncentered &lt;- stan(
-  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;non-centered&quot;, &quot;Code&quot;, &quot;hlm_noncentered.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;hlm_noncentered.stan&quot;),
   data = data,
   control = list(adapt_delta = 0.99),
   seed = 42
@@ -260,7 +260,7 @@ model {
 <p>Huzzah! Divergent transitions are gone. We do have some warnings about <code>max_treedepth</code>, which is a warning about efficiency rather than model validity (more on that at the end), and a notice about Bulk Effective Sample Size that means we should probably run the model longer to establish convergence. To address this latter problem, we can do this using the <code>iter</code> argument (the default is <code>2000</code>). Also, if we want to manage the model output file size, we can use <code>thin</code> to keep every few draws instead of saving all of them.</p>
 <p>Let’s re-run the model.</p>
 <pre class="r"><code>fit_noncentered &lt;- stan(
-  file = here::here(&quot;content&quot;, &quot;post&quot;, &quot;non-centered&quot;, &quot;Code&quot;, &quot;hlm_noncentered.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;hlm_noncentered.stan&quot;),
   data = data,
   iter = 10000,
   thin = 5,

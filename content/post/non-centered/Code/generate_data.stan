@@ -14,8 +14,8 @@ data {
 generated quantities {
   vector[N] y;                    // Vector of observations.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
-  corr_matrix[I] Omega;           // Correlation matrix for the population model.
-  vector[I] tau;                  // Vector of scale parameters for the population model.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector[I] tau;                  // Population model vector of scale parameters.
   matrix[K, I] Beta;              // Matrix of group-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 
