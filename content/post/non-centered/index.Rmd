@@ -202,7 +202,7 @@ Warning messages:
 
 Running this model gives us more than 100 divergent transitions. Recall that a divergent transition or divergence is a unique Hamiltonian Monte Carlo diagnostic that identifies problems navigating the posterior distribution. These difficulties with posterior geometry are true regardless of the sampler, but Hamiltonian Monte Carlo makes the issue transparent.
 
-We have already set `adapt_delta = 0.99`, which is the smaller step size we set previously. We need to reparameterize our model.
+We have already set `adapt_delta = 0.99`, which is the smaller step size we set previously. In order to produce a posterior geometry that can be navigated, we need to reparameterize our model.
 
 ## Non-centered parameterization
 
@@ -246,13 +246,13 @@ parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
   corr_matrix[I] Omega;           // Population model correlation matrix.
   vector<lower = 0>[I] tau;       // Population model scale parameters.
-  matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
+  matrix[K, I] Delta;             // Matrix of observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
 
 // Deterministic transformation.
 transformed parameters {
-  // Matrix of centered observation-level coefficients.
+  // Matrix of observation-level coefficients.
   matrix[K, I] Beta;
 
   // Non-centered parameterization.
@@ -285,7 +285,7 @@ model {
 
 The `parameters` block now contains `Delta` instead of `Beta`, the matrix of non-centered observation-level coefficients. We have an entirely new block `transformed parameters` that includes our specification of `Beta` and the deterministic transformation. Finally, the population model in the `model` block is replaced by a standard normal draw.
 
-We don't need to generated new data -- the generative model remains the same, it's just been re-expressed with the reparameterization. Let's call this new script, `hlm_noncentered.stan` from R.
+We don't need to generated new data -- the generative model remains the same, it's the model that has been re-expressed with the new parameterization. Let's call this new script `hlm_noncentered.stan` from R.
 
 ```{r noncentered-model-calibration-01, eval=FALSE}
 fit_noncentered <- stan(
@@ -304,7 +304,7 @@ Warning messages:
 3: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable. Running the chains for more iterations may help. See http://mc-stan.org/misc/warnings.html#bulk-ess
 ```
 
-Huzzah! Divergent transitions are gone. We do have some warnings about `max_treedepth`, which is a warning about efficiency rather than model validity (more on that at the end), and a notice about Bulk Effective Sample Size that means we should probably run the model longer to establish convergence. To address this latter problem, we can do this using the `iter` argument (the default is `2000`). Also, if we want to manage the model output file size, we can use `thin` to keep every few draws instead of saving all of them.
+Huzzah! Divergences are gone. We do have some warnings about `max_treedepth`, which is a warning about efficiency rather than model validity (more on that at the end), and a notice about Bulk Effective Sample Size that means we should probably run the model longer to establish convergence. To address this latter problem, we can use the `iter` argument (the default is `2000`). Also, if we want to manage the model output file size, we can use `thin` to keep every few draws instead of saving all of them.
 
 Let's re-run the model.
 
@@ -542,7 +542,7 @@ fit_noncentered %>%
 
 ![](Figures/marginals-sigma.png){width=1000px}
 
-Besides the `tau` parameters (and variances can be notoriously difficult) we have good convergence and model recovery. We should have confidence moving forward with real data.
+Besides the `tau` parameters (and variances can be notoriously difficult) we have good convergence and model recovery. To summarize, we have now specified a hierarchical linear model with a multivariate upper-level, generated data according to that model, and used the generated data to demonstrate that the model is working by employing a non-centered parameterization.
 
 ## Final thoughts
 
@@ -550,7 +550,7 @@ The combination of the [previous post](https://www.occasionaldivergences.com/pos
 
 The need to impose the non-centered parameterization to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions, as we saw by introducing a multivariate population model with a covariance matrix. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.
 
-Given that a hierarchical model with a multivariate population model should be our default, so should the requisite non-centered parameterization. This need is true irrespective of the sampler. Using Stan and Hamiltonian Monte Carlo just makes this need apparent through the divergences diagnostic.
+Given that a hierarchical model with a multivariate population model should be our default, so should the requisite non-centered parameterization. This need is true irrespective of the sampler. Using Stan and Hamiltonian Monte Carlo just makes this apparent with the divergences diagnostic.
 
 -----
 
