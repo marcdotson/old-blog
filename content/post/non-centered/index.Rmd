@@ -43,7 +43,7 @@ data {
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
   corr_matrix[I] Omega;           // Population model correlation matrix.
-  vector<lower = 0>[I] tau;       // Population model vector of scale parameters.
+  vector<lower = 0>[I] tau;       // Population model scale parameters.
   matrix[K, I] Beta;              // Matrix of observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
@@ -92,7 +92,7 @@ generated quantities {
   vector[N] y;                    // Vector of observations.
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
   corr_matrix[I] Omega;           // Population model correlation matrix.
-  vector[I] tau;                  // Population model vector of scale parameters.
+  vector[I] tau;                  // Population model scale parameters.
   matrix[K, I] Beta;              // Matrix of group-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 
@@ -245,7 +245,7 @@ data {
 parameters {
   matrix[J, I] Gamma;             // Matrix of population-level coefficients.
   corr_matrix[I] Omega;           // Population model correlation matrix.
-  vector<lower = 0>[I] tau;       // Population model vector of scale parameters.
+  vector<lower = 0>[I] tau;       // Population model scale parameters.
   matrix[K, I] Delta;             // Matrix of non-centered observation-level coefficients.
   real<lower = 0> sigma;          // Variance of the likelihood.
 }
