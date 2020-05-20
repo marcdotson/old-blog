@@ -237,11 +237,11 @@ model {
 }
 ```
 
-In the `data` block, we now have a vector `g` indicating which one of `K` groups each of our `N` individuals belong to. In the `parameter` block, we now have a `K`-dimensional vector of `beta` parameters, a separate mean for each of the `K` of groups. In the `model` block we can see that the likelihood (now within a for loop) is still assumed `normal`, but now each individual's observed overall satisfaction has a mean of `beta` specific to the group they belong to. We also have a population model `beta ~ normal(mu, tau)` that says these separate, group-level `beta` coefficients are themselves drawn from a population that is assumed `normal` with a mean `mu` and variance `tau`.
+In the `data` block, we now have a vector `g` indicating which one of `K` groups each of our `N` individuals belong to. In the `parameter` block, we now have a `K`-dimensional vector of `beta` parameters, a separate mean for each of the `K` groups. In the `model` block we can see that the likelihood (now within a for loop) is still assumed `normal`, but now each individual's observed overall satisfaction has a mean of `beta` specific to the group they belong to. We also have a population model `beta ~ normal(mu, tau)` that says these separate, group-level `beta` coefficients are themselves drawn from a population that is assumed `normal` with a mean `mu` and variance `tau`.
 
 This is what is meant by a hierarchy: there are two levels to our model, the lower-level likelihood or observation model and the upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are priors on a prior): `normal` hyperpriors on `mu` and `tau` (constrained to be positive). The likelihood variance, now called `sigma`, retains the same prior and positive constraint.
 
-We can again translate this Stan script, `hierarchical_regression_01.stan`, into `data` and `generated quantities` blocks called `generate_hierarchical_data_01.stan` to use Stan to generate data for us.
+We can again translate this Stan script, `hierarchical_regression_01.stan`, into `data` and `generated quantities` blocks. Let's call this script `generate_hierarchical_data_01.stan` and use Stan to generate data for us.
 
 ```{stan generate-hierarchical-data-01, output.var="generate_hierarchical_data_01", eval=FALSE}
 // Index and hyperparameter values.
@@ -323,7 +323,7 @@ http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
 2: Examine the pairs() plot to diagnose sampling problems
 ```
 
-Our sampler has identified a problem. We only have a simple hierarchical model and already our unique Hamiltonian Monte Carlo diagnostic, a divergence, has identified an issue. There is a [good reason for these divergences](https://arxiv.org/abs/1312.0906). The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it's quickly evident when using Hamiltonian Monte Carlo.
+Our sampler has identified a problem. We only have a simple hierarchical model and already our unique Hamiltonian Monte Carlo diagnostic, a divergent transition or divergence, has identified an issue. There is a [good reason for these divergences](https://arxiv.org/abs/1312.0906). The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it's quickly evident when using Hamiltonian Monte Carlo.
 
 To address this issue, our first step (and one that is helpfully suggested in the warning message above) is to increase the `adapt_delta`, which functions like a step size as the sampler navigates the posterior. A larger `adapt_delta` equates to a smaller step size, meaning the sampler will be more careful as it navigates but it will also take longer. We find that `adapt_delta = 0.99` (it only goes to 1) results in no divergences.
 
@@ -449,7 +449,7 @@ In the `data` block, we now have an index `I` specifying the number of observati
 
 In the `parameters` block, `Beta` is now a `K x I` matrix of coefficients rather than a vector and `Gamma`, a `J x I` matrix of population-level coefficients, takes the place of `mu`. The `model` block also changes accordingly, with the population model in a for loop and including `Z[k,] * Gamma` in place of `mu` and the likelihood including `X[n,] * Beta[g[n],]'` in place of `beta[g[n]]`. Note, however, that we are still assuming that the population model is distributed `normal` with a common variance `tau`. We'll come back to this at the end.
 
-We can again translate this Stan script, `hierarchical_regression_02.stan`, into `data` and `generated quantities` blocks called `generate_hierarchical_data_02.stan` to use Stan to generate data for us.
+We can again translate this Stan script, `hierarchical_regression_02.stan`, into `data` and `generated quantities` blocks. Let's call this script `generate_hierarchical_data_02.stan` and use Stan to generate data for us.
 
 ```{stan generate-hierarchical-data-02, output.var="generate_hierarchical_data_02", eval=FALSE}
 // Index values, covariates, and hyperparameter values.
