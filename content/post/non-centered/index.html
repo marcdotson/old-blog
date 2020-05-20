@@ -1,0 +1,461 @@
+---
+title: "Non-centered parameterization for hierarchical models"
+author: "Marc Dotson"
+date: '2020-05-19'
+slug: non-centered
+---
+
+
+
+<p>In a <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a>, we provided a gentle introduction to hierarchical Bayesian models in Stan. We quickly ran into divergences (i.e., divergent transitions) when attempting to estimate our model. While hierarchical models inherently have <a href="https://arxiv.org/abs/1312.0906">posteriors with geometry that can be difficult to navigate</a>, we were able to initially address this problem by more carefully navigating the posterior with a smaller step size.</p>
+<p>However, as a hierarchical model becomes more complicated, we need to re-express it in a way that is mathematically equivalent yet results in a posterior that is easier to navigate. We ended that previous post without relaxing the assumption of a common variance in the upper-level population model. In this post, we will build a hierarchical linear model with a multivariate population model. This added complexity will require us to re-express the model using what is known as a non-centered parameterization. Since this more flexible population model specification is standard, a non-centered parameterization should also be our default approach in most applications.</p>
+<p>Once again, I am in debt to Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, the <a href="https://mc-stan.org/docs/2_23/stan-users-guide/index.html">Stan User’s Guide</a>, and <a href="https://discourse.mc-stan.org">Stan Discourse</a>.</p>
+<div id="multivariate-population-model" class="section level2">
+<h2>Multivariate population model</h2>
+<p>Recall that the motivation for hierarchical models is to allow for differences across groups while employing partial pooling, striking a balance between no pooling (separate flat models for each group) and complete pooling (a single flat model). However, so far we have assumed a common variance in the population model, limiting how much partial information pooling is possible. By moving to a multivariate population model, we allow for even more pooling through the covariance matrix.</p>
+<p>Covariance matrices can be difficult to work with, especially when it comes to setting a prior (or, in our case, a hyperprior). A helpful approach is to break down the covariance matrix into component pieces. Perhaps the most intuitive decomposition is to break down the covariance matrix into variances and a correlation matrix. If we have a covariance matrix <code>Sigma</code>, this decomposition works as follows:</p>
+<pre><code>Sigma = diag_matrix(tau) * Omega * diag_matrix(tau)</code></pre>
+<p>where <code>tau</code> is a vector of scale parameters and <code>Omega</code> is a correlation matrix. Not only is this decomposition computationally more tractable, but it allows us to set a prior on <code>tau</code> and <code>Omega</code> separately rather than on <code>Sigma</code> directly.</p>
+<p>So what does a hierarchical model with a multivariate population model look like in Stan?</p>
+<pre class="stan"><code>// Index values, observations, and covariates.
+data {
+  int&lt;lower = 1&gt; N;               // Number of observations.
+  int&lt;lower = 1&gt; K;               // Number of groups.
+  int&lt;lower = 1&gt; I;               // Number of observation-level covariates.
+  int&lt;lower = 1&gt; J;               // Number of population-level covariates.
+
+  vector[N] y;                    // Vector of observations.
+  int&lt;lower = 1, upper = K&gt; g[N]; // Vector of group assignments.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[K, J] Z;                 // Matrix of population-level covariates.
+}
+
+// Parameters and hyperparameters.
+parameters {
+  matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector&lt;lower = 0&gt;[I] tau;       // Population model scale parameters.
+  matrix[K, I] Beta;              // Matrix of observation-level coefficients.
+  real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
+}
+
+// Hierarchical regression.
+model {
+  // Hyperpriors.
+  for (j in 1:J) {
+    Gamma[j,] ~ normal(0, 5);
+  }
+  Omega ~ lkj_corr(2);
+  tau ~ normal(0, 5);
+
+  // Prior.
+  sigma ~ normal(0, 5);
+
+  // Population model and likelihood.
+  for (k in 1:K) {
+    Beta[k,] ~ multi_normal(Z[k,] * Gamma, quad_form_diag(Omega, tau));
+  }
+  for (n in 1:N) {
+    y[n] ~ normal(X[n,] * Beta[g[n],]&#39;, sigma);
+  }
+}</code></pre>
+<p>We’ll save this Stan script as <code>hlm_centered.stan</code> (where “hlm” refers to a hierarchical linear model and we’ll explain the “centered” part shortly). In the <code>parameters</code> block, we have a correlation matrix <code>Omega</code> and <code>tau</code> is now a vector of scale parameters rather than a scalar. In the <code>models</code> block, <code>Omega</code> is distributed according to the LKJ distribution, a special multivariate Beta-like distribution for correlation matrices. Additionally, <code>Beta</code> is now distributed multivariate normal, with the covariance matrix a recombination of <code>Omega</code> and <code>tau</code> as described above.</p>
+<p>Since all Bayesian models are generative, we can translate this Stan script into <code>data</code> and <code>generated quantities</code> blocks and use Stan to generate data for us.</p>
+<pre class="stan"><code>// Index values, covariates, and hyperparameter values.
+data {
+  int&lt;lower = 1&gt; N;               // Number of observations.
+  int&lt;lower = 1&gt; K;               // Number of groups.
+  int&lt;lower = 1&gt; I;               // Number of observation-level covariates.
+  int&lt;lower = 1&gt; J;               // Number of population-level covariates.
+
+  int&lt;lower = 1, upper = K&gt; g[N]; // Vector of group assignments.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[K, J] Z;                 // Matrix of population-level covariates.
+}
+
+// Generate data according to the hierarchical regression.
+generated quantities {
+  vector[N] y;                    // Vector of observations.
+  matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector[I] tau;                  // Population model scale parameters.
+  matrix[K, I] Beta;              // Matrix of group-level coefficients.
+  real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
+
+  // Draw parameter values and generate data.
+  for (j in 1:J) {
+    for (i in 1:I) {
+      Gamma[j, i] = normal_rng(0, 5);
+    }
+  }
+  Omega = lkj_corr_rng(I, 2);
+  for (i in 1:I) {
+    tau[i] = chi_square_rng(2);
+  }
+  for (k in 1:K) {
+    Beta[k,] = multi_normal_rng(Z[k,] * Gamma, quad_form_diag(Omega, tau))&#39;;
+  }
+  sigma = normal_rng(0, 5);
+  for (n in 1:N) {
+    y[n] = normal_rng(X[n,] * Beta[g[n],]&#39;, sigma);
+  }
+}</code></pre>
+<p>We’ll save this Stan script as <code>generate_data.stan</code>. Note that instead of specifying parameter values in the <code>data</code> block, we are generating them in <code>generated quantities</code>. This includes using the LKJ prior to generate the values of the correlation matrix <code>Omega</code>. Also, note that since <code>Beta</code> is a matrix where each row is an observation, the vector output of <code>multi_normal_rng</code> is transposed.</p>
+<p>In an R script, let’s load the necessary packages, allow Stan to use as many cores as we have available, allow for Stan to save compiled code, specify assumed parameter values, generate data according to our hierarchical linear model by calling <code>generate_data.stan</code>, and estimate our model by calling <code>hlm_centered.stan</code>.</p>
+<pre class="r"><code># Load packages.
+library(tidyverse)
+library(rstan)
+library(bayesplot)
+library(tidybayes)
+
+# Set Stan options.
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Specify data and hyperparameter values.
+sim_values &lt;- list(
+  N = 500,                            # Number of observations.
+  K = 5,                              # Number of groups.
+  I = 7,                              # Number of observation-level covariates.
+  J = 3,                              # Number of population-level covariates.
+
+  # Vector of group assignments.
+  g = sample(5, 500, replace = TRUE),
+  
+  # Matrix of observation-level covariates.
+  X = cbind(
+    rep(1, 500),
+    matrix(runif(500 * (7 - 1), min = 1, max = 10), nrow = 500)
+  ),
+
+  # Matrix of population-level covariates.
+  Z = cbind(
+    rep(1, 5),
+    matrix(runif(5 * (3 - 1), min = 2, max = 5), nrow = 5)
+  )
+)
+
+# Generate data.
+sim_data &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;generate_data.stan&quot;),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = &quot;Fixed_param&quot;
+)
+
+# Extract simulated data and parameters.
+sim_y &lt;- extract(sim_data)$y
+sim_Gamma &lt;- extract(sim_data)$Gamma
+sim_Omega &lt;- extract(sim_data)$Omega
+sim_tau &lt;- extract(sim_data)$tau
+sim_Beta &lt;- extract(sim_data)$Beta
+sim_sigma &lt;- extract(sim_data)$sigma
+
+data &lt;- list(
+  N = sim_values$N,     # Number of observations.
+  K = sim_values$K,     # Number of groups.
+  I = sim_values$I,     # Number of observation-level covariates.
+  J = sim_values$J,     # Number of population-level covariates.
+  y = as.vector(sim_y), # Vector of observations.
+  g = sim_values$g,     # Vector of group assignments.
+  X = sim_values$X,     # Matrix of observation-level covariates.
+  Z = sim_values$Z      # Matrix of population-level covariates.
+)
+
+fit_centered &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;hlm_centered.stan&quot;),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)</code></pre>
+<pre><code>Warning messages:
+1: There were 119 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+2: There were 3577 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded 
+3: Examine the pairs() plot to diagnose sampling problems
+ 
+4: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable. Running the chains for more iterations may help. See http://mc-stan.org/misc/warnings.html#bulk-ess </code></pre>
+<p>Running this model gives us more than 100 divergent transitions. Recall that a divergent transition or divergence is a unique Hamiltonian Monte Carlo diagnostic that identifies problems navigating the posterior distribution. These difficulties with posterior geometry are true regardless of the sampler, but Hamiltonian Monte Carlo makes the issue transparent.</p>
+<p>We have already set <code>adapt_delta = 0.99</code>, which is the smaller step size we set previously. In order to produce a posterior geometry that can be navigated, we need to reparameterize our model.</p>
+</div>
+<div id="non-centered-parameterization" class="section level2">
+<h2>Non-centered parameterization</h2>
+<p>The centered parameterization for a hierarchical linear model, as expressed above, has a population model and likelihood:</p>
+<pre><code>Beta ~ multi_normal(mu, Sigma)
+y ~ normal(Beta, sigma)</code></pre>
+<p>where we get draws from the posterior distribution of <code>mu</code> and <code>Sigma</code>, the population mean (where we specified <code>mu = Z * Gamma</code>) and covariance (where we specified <code>Sigma = diag_matrix(tau) * Omega * diag_matrix(tau)</code>) and <code>Beta</code>, the group-level coefficients.</p>
+<p>The non-centered parameterization re-expresses the population model and likelihood for a hierarchical linear model as:</p>
+<pre><code>Delta ~ normal(0, 1)
+Beta = mu + Delta * Sigma
+y ~ normal(Beta, sigma)</code></pre>
+<p>where we get draws from the posterior distribution of <code>mu</code>, <code>Sigma</code>, and <code>Delta</code>, since <code>Beta</code> is now a deterministic transformation of the other parameters (i.e., we have <code>Beta =</code> instead of <code>Beta ~</code>). The benefit of a non-centered parameterization – the inclusion of the intermediate <code>Delta</code> and the deterministic transformation of <code>Beta</code> – is that difficult dependencies between the two layers in the hierarchy are broken, producing a simpler posterior geometry.</p>
+<p>So what does our hierarchical linear model look like with a non-centered parameterization?</p>
+<pre class="stan"><code>// Index values, observations, and covariates.
+data {
+  int&lt;lower = 1&gt; N;               // Number of observations.
+  int&lt;lower = 1&gt; K;               // Number of groups.
+  int&lt;lower = 1&gt; I;               // Number of observation-level covariates.
+  int&lt;lower = 1&gt; J;               // Number of population-level covariates.
+
+  vector[N] y;                    // Vector of observations.
+  int&lt;lower = 1, upper = K&gt; g[N]; // Vector of group assignments.
+  matrix[N, I] X;                 // Matrix of observation-level covariates.
+  matrix[K, J] Z;                 // Matrix of population-level covariates.
+}
+
+// Parameters and hyperparameters.
+parameters {
+  matrix[J, I] Gamma;             // Matrix of population-level coefficients.
+  corr_matrix[I] Omega;           // Population model correlation matrix.
+  vector&lt;lower = 0&gt;[I] tau;       // Population model scale parameters.
+  matrix[K, I] Delta;             // Matrix of observation-level coefficients.
+  real&lt;lower = 0&gt; sigma;          // Variance of the likelihood.
+}
+
+// Deterministic transformation.
+transformed parameters {
+  // Matrix of observation-level coefficients.
+  matrix[K, I] Beta;
+
+  // Non-centered parameterization.
+  for (k in 1:K) {
+    Beta[k,] = Z[k,] * Gamma + Delta[k,] * quad_form_diag(Omega, tau);
+  }
+}
+
+// Hierarchical regression.
+model {
+  // Hyperpriors.
+  for (j in 1:J) {
+    Gamma[j,] ~ normal(0, 5);
+  }
+  Omega ~ lkj_corr(2);
+  tau ~ normal(0, 5);
+
+  // Prior.
+  sigma ~ normal(0, 5);
+
+  // Non-centered population model and likelihood.
+  for (k in 1:K) {
+    Delta[k,] ~ normal(0, 1);
+  }
+  for (n in 1:N) {
+    y[n] ~ normal(X[n,] * Beta[g[n],]&#39;, sigma);
+  }
+}</code></pre>
+<p>The <code>parameters</code> block now contains <code>Delta</code> instead of <code>Beta</code>, the matrix of non-centered observation-level coefficients. We have an entirely new block <code>transformed parameters</code> that includes our specification of <code>Beta</code> and the deterministic transformation. Finally, the population model in the <code>model</code> block is replaced by a standard normal draw.</p>
+<p>We don’t need to generated new data – the generative model remains the same, it’s the model that has been re-expressed with the new parameterization. Let’s call this new script <code>hlm_noncentered.stan</code> from R.</p>
+<pre class="r"><code>fit_noncentered &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;hlm_noncentered.stan&quot;),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)</code></pre>
+<pre><code>Warning messages:
+1: There were 4000 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded 
+2: Examine the pairs() plot to diagnose sampling problems
+ 
+3: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable. Running the chains for more iterations may help. See http://mc-stan.org/misc/warnings.html#bulk-ess</code></pre>
+<p>Huzzah! Divergences are gone. We do have some warnings about <code>max_treedepth</code>, which is a warning about efficiency rather than model validity (more on that at the end), and a notice about Bulk Effective Sample Size that means we should probably run the model longer to establish convergence. To address this latter problem, we can use the <code>iter</code> argument (the default is <code>2000</code>). Also, if we want to manage the model output file size, we can use <code>thin</code> to keep every few draws instead of saving all of them.</p>
+<p>Let’s re-run the model.</p>
+<pre class="r"><code>fit_noncentered &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;hlm_noncentered.stan&quot;),
+  data = data,
+  iter = 10000,
+  thin = 5,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)</code></pre>
+<pre><code>Warning messages:
+1: There were 4000 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded 
+2: Examine the pairs() plot to diagnose sampling problems</code></pre>
+<p>The model takes longer to run, but we are only left with a warning about efficiency.</p>
+<p>As before, let’s evaluate trace plots.</p>
+<pre class="r"><code># Check population model trace plots.
+gamma_string &lt;- str_c(&quot;Gamma[&quot;, 1:data$J, &quot;,&quot;, 1, &quot;]&quot;)
+omega_string &lt;- str_c(&quot;Omega[&quot;, 1:data$I, &quot;,&quot;, 1, &quot;]&quot;)
+tau_string &lt;- str_c(&quot;tau[&quot;, 1:data$I, &quot;]&quot;)
+for (i in 2:data$I) {
+  gamma_temp &lt;- str_c(&quot;Gamma[&quot;, 1:data$J, &quot;,&quot;, i, &quot;]&quot;)
+  gamma_string &lt;- c(gamma_string, gamma_temp)
+  omega_temp &lt;- str_c(&quot;Omega[&quot;, 1:data$I, &quot;,&quot;, i, &quot;]&quot;)
+  omega_string &lt;- c(omega_string, omega_temp)
+}
+
+# Gamma.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = gamma_string,
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(gamma_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-gamma.png" width="1000" /></p>
+<pre class="r"><code># Omega.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = omega_string,
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(omega_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-omega.png" width="1000" /></p>
+<p>Note that the diagonal in a correlation matrix is fixed to 1.</p>
+<pre class="r"><code># tau.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = tau_string,
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(tau_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-tau.png" width="1000" /></p>
+<pre class="r"><code># Check observation model trace plots.
+beta_string &lt;- str_c(&quot;Beta[&quot;, 1:data$K, &quot;,&quot;, 1, &quot;]&quot;)
+for (i in 2:data$I) {
+  beta_temp &lt;- str_c(&quot;Beta[&quot;, 1:data$K, &quot;,&quot;, i, &quot;]&quot;)
+  beta_string &lt;- c(beta_string, beta_temp)
+}
+
+# Beta and sigma.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = c(beta_string, &quot;sigma&quot;),
+    n_warmup = 500,
+    facet_args = list(
+      nrow = ceiling(length(c(beta_string, &quot;sigma&quot;)) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-beta_sigma.png" width="1000" /></p>
+<p>Across population and observation model parameters, we have good mixing and clear convergence across all chains. Now let’s demonstrate parameter recovery for our <em>many</em> model parameters.</p>
+<pre class="r"><code># Recover Gamma values.
+gamma_values &lt;- tibble(
+  j = sort(rep(1:(data$J), data$I)),
+  i = rep(1:(data$I), data$J),
+  .variable = str_c(&quot;Gamma&quot;, &quot;_&quot;, j, &quot;_&quot;, i),
+  values = as.vector(t(matrix(sim_Gamma, ncol = data$I)))
+) %&gt;%
+  select(.variable, values)
+
+fit_noncentered %&gt;%
+  gather_draws(Gamma[j, i]) %&gt;%
+  unite(.variable, .variable, j, i) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), gamma_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$J,
+    ncol = data$I,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-gamma.png" width="1000" /></p>
+<pre class="r"><code># Recover Omega values.
+omega_values &lt;- tibble(
+  j = sort(rep(1:(data$I), data$I)),
+  i = rep(1:(data$I), data$I),
+  .variable = str_c(&quot;Omega&quot;, &quot;_&quot;, j, &quot;_&quot;, i),
+  values = as.vector(t(matrix(sim_Omega, ncol = data$I)))
+) %&gt;%
+  select(.variable, values)
+
+fit_noncentered %&gt;%
+  gather_draws(Omega[j, i]) %&gt;%
+  unite(.variable, .variable, j, i) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), omega_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$I,
+    ncol = data$I,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-omega.png" width="1000" /></p>
+<p>Once again, the diagonal in a correlation matrix is fixed at 1.</p>
+<pre class="r"><code># Recover tau values.
+tau_values &lt;- tibble(
+  i = 1:(data$I),
+  .variable = str_c(&quot;tau&quot;, &quot;_&quot;, i),
+  values = as.vector(sim_tau)
+) %&gt;%
+  select(.variable, values)
+
+fit_noncentered %&gt;%
+  gather_draws(tau[i]) %&gt;%
+  unite(.variable, .variable, i) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), tau_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    nrow = ceiling(data$I / 4),
+    ncol = 4,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-tau.png" width="1000" /></p>
+<p>We have some difficulty recovering the variance parameters in our covariance matrix decomposition.</p>
+<pre class="r"><code># Recover Beta values.
+beta_values &lt;- tibble(
+  n = sort(rep(1:(data$K), data$I)),
+  i = rep(1:(data$I), data$K),
+  .variable = str_c(&quot;Beta&quot;, &quot;_&quot;, n, &quot;_&quot;, i),
+  values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
+) %&gt;%
+  select(.variable, values)
+
+fit_noncentered %&gt;%
+  gather_draws(Beta[n, i]) %&gt;%
+  unite(.variable, .variable, n, i) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), beta_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    nrow = data$K,
+    ncol = data$I,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-beta.png" width="1000" /></p>
+<pre class="r"><code># Recover sigma value.
+sigma_values &lt;- tibble(
+  .variable = &quot;sigma&quot;,
+  values = sim_sigma,
+)
+
+fit_noncentered %&gt;%
+  gather_draws(sigma) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), sigma_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    nrow = 1,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-sigma.png" width="1000" /></p>
+<p>Besides the <code>tau</code> parameters (and variances can be notoriously difficult) we have good convergence and model recovery. To summarize, we have now specified a hierarchical linear model with a multivariate upper-level, generated data according to that model, and used the generated data to demonstrate that the model is working by employing a non-centered parameterization.</p>
+</div>
+<div id="final-thoughts" class="section level2">
+<h2>Final thoughts</h2>
+<p>The combination of the <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">previous post</a> and this one hopefully provide a helpful and more complete starting point for using hierarchical models in Stan. The <code>max_treedepth</code> warning highlights that all of this code isn’t the most efficient. However, it is often best to worry about readability before optimizing code for efficiency.</p>
+<p>The need to impose the non-centered parameterization to break difficult dependencies between the two layers in the hierarchy grows with thinner data or more dimensions, as we saw by introducing a multivariate population model with a covariance matrix. However, the centered and non-centered parameterizations are inversely related in terms of efficiency; when a centered parameterization will suffice, a non-centered parameterization should underperform and when a non-centered parameterization will suffice, a centered parameterization should underperform.</p>
+<p>Given that a hierarchical model with a multivariate population model should be our default, so should the requisite non-centered parameterization. This need is true irrespective of the sampler. Using Stan and Hamiltonian Monte Carlo just makes this apparent with the divergences diagnostic.</p>
+<hr />
+<div id="marc-dotson" class="section level3">
+<h3>Marc Dotson</h3>
+<p>Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on <a href="https://twitter.com/marcdotson">Twitter</a> and <a href="https://github.com/marcdotson">GitHub</a>.</p>
+</div>
+</div>
