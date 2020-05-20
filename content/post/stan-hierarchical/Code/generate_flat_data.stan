@@ -7,7 +7,8 @@ data {
 
 // Generate data according to the simple regression.
 generated quantities {
-  vector[N] y;         // Vector of observations.
+  // Vector of observations.
+  vector[N] y;
 
   // Generate data.
   for (n in 1:N) {

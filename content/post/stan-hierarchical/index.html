@@ -9,10 +9,10 @@ slug: stan-hierarchical
 
 <p>Bayesian inference provides an intuitive and self-consistent approach to statistical modeling. In short, you have beliefs about unobserved values (e.g., the impact of price on customer satisfaction) and you use data to update those beliefs. The barrier to using Bayesian inference in practice has never been this intuition – it’s been the required computation. There has been a great deal of progress on this front, with <a href="https://mc-stan.org">Stan</a> arguably providing the best modern solution.</p>
 <p>Stan is a probabilistic programming language that provides a general-purpose sampler using Hamiltonian Monte Carlo. In other words, Stan automates the required computation (for many models), allowing you to conduct Bayesian inference by focusing solely on model building. This is especially powerful when it comes to utilizing the mainstay of Bayesian inference: hierarchical models.</p>
-<p>The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a <a href="https://www.tidyverse.org">tidy approach</a> whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, and the <a href="https://mc-stan.org/docs/2_21/stan-users-guide/index.html">Stan User’s Guide</a>. Much of what follows is motivated by Michael and Richard’s work as well as Ben Goodrich’s <a href="https://mc-stan.org/events/stancon2019Cambridge/">StanCon 2019</a> tutorial.</p>
-<div id="simple-regression" class="section level2">
-<h2>Simple regression</h2>
-<p>By way of introduction, let’s start with a simple, non-hierarchical regression. In a Stan script, which <a href="https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/">has native support in RStudio</a>, we specify the three required blocks for a Stan model: <code>data</code>, <code>parameters</code>, and <code>model</code> (i.e., the prior and the likelihood).</p>
+<p>The goal of this post is to provide a gentle introduction to building hierarchical models in Stan. We will be interfacing with Stan through R and will be adopting a <a href="https://www.tidyverse.org">tidy approach</a> whenever appropriate. This post does not provide an introduction to Bayesian inference, including a complete Bayesian inference workflow, or the basics of using Stan. For that, I recommend Michael Betancourt’s <a href="https://betanalpha.github.io/writing/">case studies</a>, Richard McElreath’s <a href="https://xcelab.net/rm/statistical-rethinking/"><em>Statistical Rethinking</em></a>, and the <a href="https://mc-stan.org/docs/2_23/stan-users-guide/index.html">Stan User’s Guide</a>. Much of what follows is motivated by Michael and Richard’s work as well as Ben Goodrich’s <a href="https://mc-stan.org/events/stancon2019Cambridge/">StanCon 2019</a> tutorial.</p>
+<div id="simple-flat-regression" class="section level2">
+<h2>Simple flat regression</h2>
+<p>By way of introduction, let’s start with a simple flat or non-hierarchical regression. In a Stan script, which <a href="https://blog.rstudio.com/2018/10/16/rstudio-1-2-preview-stan/">has native support in RStudio</a>, we specify the three required blocks for a Stan model: <code>data</code>, <code>parameters</code>, and <code>model</code> (i.e., the prior and the likelihood or observation model).</p>
 <pre class="stan"><code>// Index value and observations.
 data {
   int&lt;lower = 1&gt; N;    // Number of observations.
@@ -34,7 +34,7 @@ model {
   // Likelihood.
   y ~ normal(mu, tau);
 }</code></pre>
-<p>We’ll save this Stan script as <code>regression.stan</code>. Imagine this is a model of customer satisfaction where we have <code>N</code> individuals, a vector of satisfaction scores <code>y</code> with a single observation from each individual, and we are assuming that satisfaction <code>y</code> is distributed <code>normal</code>, with a single mean <code>mu</code> and variance <code>tau</code> to describe customer satisfaction in the population. Finally, our joint model is complete with <code>normal</code> priors on <code>mu</code> and <code>tau</code>, where <code>tau</code> is constrained to be positive in the <code>parameters</code> block.</p>
+<p>We’ll save this Stan script as <code>flat_regression.stan</code>. Imagine this is a model of customer satisfaction where we have <code>N</code> individuals, a vector of satisfaction scores <code>y</code> with a single observation from each individual, and we are assuming that satisfaction <code>y</code> is distributed <code>normal</code>, with a single mean <code>mu</code> and variance <code>tau</code> to describe customer satisfaction in the population. Finally, our joint model is complete with <code>normal</code> priors on <code>mu</code> and <code>tau</code>, where <code>tau</code> is constrained to be positive in the <code>parameters</code> block.</p>
 <p>Like all Bayesian models, this model is generative, so we can also use Stan to generate data according to some assumed parameter values and then use the generated data to test the model, including demonstrating parameter recovery. To do this, we reorganize these three blocks into <code>data</code> (which now includes the assumed parameter values as data) and <code>generated quantities</code> blocks (which now includes the observations that will be generated).</p>
 <pre class="stan"><code>// Index and parameter values.
 data {
@@ -45,15 +45,16 @@ data {
 
 // Generate data according to the simple regression.
 generated quantities {
-  vector[N] y;         // Vector of observations.
+  // Vector of observations.
+  vector[N] y;
 
   // Generate data.
   for (n in 1:N) {
     y[n] = normal_rng(mu, tau);
   }
 }</code></pre>
-<p>We’ll save this Stan script as <code>generate_data_00.stan</code>. The for loop over <code>y</code> in the <code>generated quantities</code> block emphasizes the strong assumption of this non-hierarchical model that a single mean <code>mu</code> and variance <code>tau</code> describe customer satisfaction for the entire population. If this doesn’t sit well with you, a hierarchical model will provide the cure. We’ll get there shortly.</p>
-<p>In an R script, let’s load the necessary packages, allow Stan to use as many cores as we have available, allow for Stan to save compiled code, specify assumed parameter values, and generate data according to our simple regression by calling <code>generate_data.stan</code>.</p>
+<p>We’ll save this Stan script as <code>generate_flat_data.stan</code>. The for loop over <code>y</code> in the <code>generated quantities</code> block emphasizes the strong assumption of this flat or non-hierarchical model that a single mean <code>mu</code> and variance <code>tau</code> describe customer satisfaction for the entire population. If this doesn’t sit well with you, a hierarchical model will provide the cure. We’ll get there shortly.</p>
+<p>In an R script, let’s load the necessary packages, allow Stan to use as many cores as we have available, allow for Stan to save compiled code, specify assumed parameter values, and generate data according to our simple flat regression by calling <code>generate_flat_data.stan</code>.</p>
 <pre class="r"><code># Load packages.
 library(tidyverse)
 library(rstan)
@@ -73,14 +74,14 @@ sim_values &lt;- list(
 
 # Generate data.
 sim_data &lt;- stan(
-  file = here::here(&quot;Code&quot;, &quot;generate_data.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;generate_flat_data.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
   seed = 42,
   algorithm = &quot;Fixed_param&quot;
 )</code></pre>
-<pre><code>SAMPLING FOR MODEL &#39;generate_data_00&#39; NOW (CHAIN 1).
+<pre><code>SAMPLING FOR MODEL &#39;generate_flat_data&#39; NOW (CHAIN 1).
 Chain 1: Iteration: 1 / 1 [100%]  (Sampling)
 Chain 1: 
 Chain 1:  Elapsed Time: 0 seconds (Warm-up)
@@ -90,7 +91,7 @@ Chain 1: </code></pre>
 <p>Stan provides verbose output noting progress as well as any warnings. Everything looks fine here, so we can go ahead and extract our simulated data.</p>
 <pre class="r"><code># Extract simulated data.
 sim_y &lt;- extract(sim_data)$y</code></pre>
-<p>To test our model, we simply specify the simulated data as a list of data to be used as an input, call the regression model <code>regression.stan</code> from R, and Stan does all the heavy lifting for us.</p>
+<p>To test our model, we simply specify the simulated data as a list of data to be used as an input, call the regression model <code>flat_regression.stan</code> from R, and Stan does all the heavy lifting for us.</p>
 <pre class="r"><code># Specify data.
 data &lt;- list(
   N = length(sim_y),   # Number of observations.
@@ -99,11 +100,11 @@ data &lt;- list(
 
 # Calibrate the model.
 fit &lt;- stan(
-  file = here::here(&quot;Code&quot;, &quot;regression.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;flat_regression.stan&quot;),
   data = data,
   seed = 42
 )</code></pre>
-<pre><code>SAMPLING FOR MODEL &#39;regression&#39; NOW (CHAIN 4).
+<pre><code>SAMPLING FOR MODEL &#39;flat_regression&#39; NOW (CHAIN 4).
 Chain 4: Gradient evaluation took 1.2e-05 seconds
 Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 0.12 seconds.
 Chain 4: Adjust your expectations accordingly!
@@ -115,7 +116,7 @@ Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
 Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
 Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
 Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 4: Chain Iteration: 1001 / 2000 [ 50%]  (Sampling)
+Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
 Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
 Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
 Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
@@ -126,7 +127,7 @@ Chain 4:  Elapsed Time: 0.031208 seconds (Warm-up)
 Chain 4:                0.024732 seconds (Sampling)
 Chain 4:                0.05594 seconds (Total)
 Chain 4: </code></pre>
-<p>Stan takes the three required blocks in <code>regression.stan</code> and creates a Hamiltonian Monte Carlo sampler to produce draws from the posterior. The output tracks progress across many iterations (2000 by default) and chains (4 by default), along with any problems. Here we have included printed for the fourth chain only and no problems have been identified. We can also check the trace plots.</p>
+<p>Stan takes the three required blocks in <code>flat_regression.stan</code> and creates a Hamiltonian Monte Carlo sampler to produce draws from the posterior. The output tracks progress across many iterations (2000 by default) and chains (4 by default) along with any problems. Here we have printed the output for the fourth chain only and no problems have been identified. We can also check the trace plots.</p>
 <pre class="r"><code># Check trace plots.
 fit %&gt;%
   mcmc_trace(
@@ -134,7 +135,7 @@ fit %&gt;%
     n_warmup = 500,
     facet_args = list(nrow = 2, labeller = label_parsed)
   )</code></pre>
-<p><img src="Figures/mcmc_trace-00.png" width="1000" /></p>
+<p><img src="figures/flat_mcmc_trace.png" width="1000" /></p>
 <p>We have good mixing and clear convergence across all chains for both of our model parameters.</p>
 <p>Finally, we can demonstrate parameter recovery by plotting the marginal posteriors for each of our parameters to confirm that the assumed parameter values used when generating data are within or near reasonable credible intervals.</p>
 <pre class="r"><code># Recover parameter values.
@@ -153,12 +154,12 @@ fit %&gt;%
     nrow = 2,
     scales = &quot;free&quot;
   )</code></pre>
-<p><img src="Figures/marginals-00.png" width="1000" /></p>
-<p>The assumed parameter values (in red) have been recovered by the model (they are in or nearly within a customary 95% credible interval)! In summary, we’ve specified a simple regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.</p>
+<p><img src="figures/flat_marginals.png" width="1000" /></p>
+<p>The assumed parameter values (in red) have been recovered by the model (they are in or nearly within a customary 95% credible interval)! In summary, we’ve specified a simple flat or non-hierarchical regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working as intended.</p>
 </div>
 <div id="simple-hierarchical-regression" class="section level2">
 <h2>Simple hierarchical regression</h2>
-<p>So why use a hierarchical model? The most straightforward reason is that sinking feeling we have about the assumption that a single set of parameters will effectively describe the entire population. In terms of customer satisfaction, we know there is heterogeneity across consumers – not everyone behaves or thinks the same. At the very least, we can think about satisfaction being different for different customer groups or segments.</p>
+<p>So why use a hierarchical model (also known as a multilevel or nested multilevel model)? The most straightforward reason is that sinking feeling we have about the assumption that a single set of parameters will effectively describe the entire population. In terms of customer satisfaction, we know there is heterogeneity across consumers – not everyone behaves or thinks the same. At the very least, we can think about satisfaction being different for different customer groups or segments.</p>
 <p>So what does a simple hierarchical regression look like in Stan?</p>
 <pre class="stan"><code>// Index values and observations.
 data {
@@ -191,9 +192,9 @@ model {
     y[n] ~ normal(beta[g[n]], sigma);
   }
 }</code></pre>
-<p>In the <code>data</code> block, we now have a vector <code>g</code> indicating which one of <code>K</code> groups each of our <code>N</code> individuals belong to. In the <code>parameter</code> block, we now have a <code>K</code>-dimensional vector of <code>beta</code> parameters, a separate mean for each of the <code>K</code> of groups. In the <code>model</code> block we can see that the likelihood (now within a for loop) is still assumed <code>normal</code>, but now each individual’s observed overall satisfaction has a mean of <code>beta</code> specific to the group they belong to. We also have a population model <code>beta ~ normal(mu, tau)</code> that says these separate, group-level <code>beta</code> coefficients are themselves drawn from a population that is assumed <code>normal</code> with a mean <code>mu</code> and variance <code>tau</code>.</p>
-<p>This is what is meant by a hierarchy: there are two levels to our model, the lower-level likelihood and the upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are priors on a prior): <code>normal</code> hyperpriors on <code>mu</code> and <code>tau</code> (constrained to be positive). Note that we are not assuming a hierarchy to the likelihood variance, now called <code>sigma</code>, so it retains the same prior and positive constraint.</p>
-<p>We can again translate this Stan script, <code>hierarchical_regression_01.stan</code>, into <code>data</code> and <code>generated quantities</code> blocks called <code>generate_data_01.stan</code> to use Stan to generate data for us.</p>
+<p>In the <code>data</code> block, we now have a vector <code>g</code> indicating which one of <code>K</code> groups each of our <code>N</code> individuals belong to. In the <code>parameter</code> block, we now have a <code>K</code>-dimensional vector of <code>beta</code> parameters, a separate mean for each of the <code>K</code> groups. In the <code>model</code> block we can see that the likelihood (now within a for loop) is still assumed <code>normal</code>, but now each individual’s observed overall satisfaction has a mean of <code>beta</code> specific to the group they belong to. We also have a population model <code>beta ~ normal(mu, tau)</code> that says these separate, group-level <code>beta</code> coefficients are themselves drawn from a population that is assumed <code>normal</code> with a mean <code>mu</code> and variance <code>tau</code>.</p>
+<p>This is what is meant by a hierarchy: there are two levels to our model, the lower-level likelihood or observation model and the upper-level population model. Finally, our joint model is complete with a prior on the population model parameters (formally referred to as hyperpriors, since they are priors on a prior): <code>normal</code> hyperpriors on <code>mu</code> and <code>tau</code> (constrained to be positive). The likelihood variance, now called <code>sigma</code>, retains the same prior and positive constraint.</p>
+<p>We can again translate this Stan script, <code>hierarchical_regression_01.stan</code>, into <code>data</code> and <code>generated quantities</code> blocks. Let’s call this script <code>generate_hierarchical_data_01.stan</code> and use Stan to generate data for us.</p>
 <pre class="stan"><code>// Index and hyperparameter values.
 data {
   int&lt;lower = 1&gt; N;               // Number of observations.
@@ -230,21 +231,15 @@ sim_values &lt;- list(
 
 # Generate data.
 sim_data &lt;- stan(
-  file = here::here(&quot;Code&quot;, &quot;generate_data_01.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;generate_hierarchical_data_01.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
   seed = 42,
   algorithm = &quot;Fixed_param&quot;
-)</code></pre>
-<pre><code>SAMPLING FOR MODEL &#39;generate_data_01&#39; NOW (CHAIN 1).
-Chain 1: Iteration: 1 / 1 [100%]  (Sampling)
-Chain 1: 
-Chain 1:  Elapsed Time: 0 seconds (Warm-up)
-Chain 1:                6.6e-05 seconds (Sampling)
-Chain 1:                6.6e-05 seconds (Total)
-Chain 1: </code></pre>
-<pre class="r"><code># Extract simulated data and group intercepts.
+)
+
+# Extract simulated data and group intercepts.
 sim_y &lt;- extract(sim_data)$y
 sim_beta &lt;- extract(sim_data)$beta</code></pre>
 <p>We can test our simple hierarchical model using our new simulated data to fit the hierarchical regression from R.</p>
@@ -266,7 +261,7 @@ fit &lt;- stan(
 1: There were 6 divergent transitions after warmup. Increasing adapt_delta above 0.8 may help. See
 http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
 2: Examine the pairs() plot to diagnose sampling problems</code></pre>
-<p>Our sampler has identified a problem. We only have a simple hierarchical model and already our unique Hamiltonian Monte Carlo diagnostic, a divergence, has identified an issue. There is a <a href="https://arxiv.org/abs/1312.0906">good reason for these divergences</a>. The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it’s quickly evident when using Hamiltonian Monte Carlo.</p>
+<p>Our sampler has identified a problem. We only have a simple hierarchical model and already our unique Hamiltonian Monte Carlo diagnostic, a divergent transition or divergence, has identified an issue. There is a <a href="https://arxiv.org/abs/1312.0906">good reason for these divergences</a>. The short story is that hierarchical models have posteriors with geometry that is difficult to navigate. This is true independent of the sampler, but it’s quickly evident when using Hamiltonian Monte Carlo.</p>
 <p>To address this issue, our first step (and one that is helpfully suggested in the warning message above) is to increase the <code>adapt_delta</code>, which functions like a step size as the sampler navigates the posterior. A larger <code>adapt_delta</code> equates to a smaller step size, meaning the sampler will be more careful as it navigates but it will also take longer. We find that <code>adapt_delta = 0.99</code> (it only goes to 1) results in no divergences.</p>
 <pre class="r"><code># Calibrate the model.
 fit &lt;- stan(
@@ -283,7 +278,7 @@ fit %&gt;%
     n_warmup = 500,
     facet_args = list(nrow = 5, labeller = label_parsed)
   )</code></pre>
-<p><img src="Figures/mcmc_trace-01.png" width="1000" /></p>
+<p><img src="figures/hierarchical_mcmc_trace-01.png" width="1000" /></p>
 <p>Finally, we can demonstrate parameter recovery for both the population-level hyperparameters and the group-level parameters.</p>
 <pre class="r"><code># Recover hyperparameter and parameter values.
 hyper_par_values &lt;- tibble(
@@ -306,7 +301,7 @@ fit %&gt;%
     nrow = 3,
     scales = &quot;free&quot;
   )</code></pre>
-<p><img src="Figures/marginals-01a.png" width="1000" /></p>
+<p><img src="figures/hierarchical_marginals-01a.png" width="1000" /></p>
 <pre class="r"><code>fit %&gt;%
   spread_draws(beta[n]) %&gt;%
   ggplot(aes(x = beta, y = n)) +
@@ -317,12 +312,12 @@ fit %&gt;%
     nrow = 3,
     scales = &quot;free&quot;
   )</code></pre>
-<p><img src="Figures/marginals-01b.png" width="1000" /></p>
+<p><img src="figures/hierarchical_marginals-01b.png" width="1000" /></p>
 <p>Both the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a simple hierarchical regression model in Stan, generated data according to that model, and used the generated data to demonstrate that the model is working.</p>
 </div>
 <div id="multiple-hierarchical-regression" class="section level2">
 <h2>Multiple hierarchical regression</h2>
-<p>In this final section, let’s fully embrace what it means to have a hierarchical model. With both an observational model <em>and</em> a population model, we can include both observation-level and population-level covariates.</p>
+<p>In this final section, let’s more fully embrace what it means to have a hierarchical model. With both a likelihood or observation model <em>and</em> a population model, we can include both observation-level and population-level covariates.</p>
 <p>Exciting, right? Let’s get started.</p>
 <pre class="stan"><code>// Index values, observations, and covariates.
 data {
@@ -364,8 +359,9 @@ model {
     y[n] ~ normal(X[n,] * Beta[g[n],]&#39;, sigma);
   }
 }</code></pre>
-<p>In the <code>data</code> block, we now have an index <code>I</code> specifying the number of observation-level covariates and an index <code>J</code> specifying the number of population-level covariates along with a corresponding <code>N x I</code> matrix <code>X</code> that contains the observation-level covariates (including an intercept) and a <code>K x J</code> matrix <code>Z</code> that contains the population-level covariates (again, including an intercept). In the <code>parameters</code> block, <code>Beta</code> is now a <code>K x I</code> matrix of coefficients rather than a vector and <code>Gamma</code>, a <code>J x I</code> matrix of population-level coefficients, takes the place of <code>mu</code>. The <code>model</code> block also changes accordingly, with the population model in a for loop and including <code>Z[k,] * Gamma</code> in place of <code>mu</code> and the likelihood including <code>X[n,] * Beta[g[n],]'</code> in place of <code>beta[g[n]]</code>.</p>
-<p>We can again translate this Stan script, <code>hierarchical_regression_02.stan</code>, into <code>data</code> and <code>generated quantities</code> blocks called <code>generate_data_02.stan</code> to use Stan to generate data for us.</p>
+<p>In the <code>data</code> block, we now have an index <code>I</code> specifying the number of observation-level covariates and an index <code>J</code> specifying the number of population-level covariates along with a corresponding <code>N x I</code> matrix <code>X</code> that contains the observation-level covariates (including an intercept) and a <code>K x J</code> matrix <code>Z</code> that contains the population-level covariates (again, including an intercept).</p>
+<p>In the <code>parameters</code> block, <code>Beta</code> is now a <code>K x I</code> matrix of coefficients rather than a vector and <code>Gamma</code>, a <code>J x I</code> matrix of population-level coefficients, takes the place of <code>mu</code>. The <code>model</code> block also changes accordingly, with the population model in a for loop and including <code>Z[k,] * Gamma</code> in place of <code>mu</code> and the likelihood including <code>X[n,] * Beta[g[n],]'</code> in place of <code>beta[g[n]]</code>. Note, however, that we are still assuming that the population model is distributed <code>normal</code> with a common variance <code>tau</code>. We’ll come back to this at the end.</p>
+<p>We can again translate this Stan script, <code>hierarchical_regression_02.stan</code>, into <code>data</code> and <code>generated quantities</code> blocks. Let’s call this script <code>generate_hierarchical_data_02.stan</code> and use Stan to generate data for us.</p>
 <pre class="stan"><code>// Index values, covariates, and hyperparameter values.
 data {
   int&lt;lower = 1&gt; N;               // Number of observations.
@@ -428,21 +424,15 @@ sim_values &lt;- list(
 
 # Generate data.
 sim_data &lt;- stan(
-  file = here::here(&quot;Code&quot;, &quot;generate_data_02.stan&quot;),
+  file = here::here(&quot;Code&quot;, &quot;generate_hierarchical_data_02.stan&quot;),
   data = sim_values,
   iter = 1,
   chains = 1,
   seed = 42,
   algorithm = &quot;Fixed_param&quot;
-)</code></pre>
-<pre><code>SAMPLING FOR MODEL &#39;generate_data_02&#39; NOW (CHAIN 1).
-Chain 1: Iteration: 1 / 1 [100%]  (Sampling)
-Chain 1: 
-Chain 1:  Elapsed Time: 0 seconds (Warm-up)
-Chain 1:                0.00018 seconds (Sampling)
-Chain 1:                0.00018 seconds (Total)
-Chain 1: </code></pre>
-<pre class="r"><code># Extract simulated data and group intercepts.
+)
+
+# Extract simulated data and group intercepts.
 sim_y &lt;- extract(sim_data)$y
 sim_Gamma &lt;- extract(sim_data)$Gamma
 sim_Beta &lt;- extract(sim_data)$Beta</code></pre>
@@ -466,30 +456,7 @@ fit &lt;- stan(
   control = list(adapt_delta = 0.99),
   seed = 42
 )</code></pre>
-<pre><code>SAMPLING FOR MODEL &#39;hierarchical_regression_02&#39; NOW (CHAIN 4).
-Chain 4: 
-Chain 4: Gradient evaluation took 0.000721 seconds
-Chain 4: 1000 transitions using 10 leapfrog steps per transition would take 7.21 seconds.
-Chain 4: Adjust your expectations accordingly!
-Chain 4: 
-Chain 4: 
-Chain 4: Iteration:    1 / 2000 [  0%]  (Warmup)
-Chain 4: Iteration:  200 / 2000 [ 10%]  (Warmup)
-Chain 4: Iteration:  400 / 2000 [ 20%]  (Warmup)
-Chain 4: Iteration:  600 / 2000 [ 30%]  (Warmup)
-Chain 4: Iteration:  800 / 2000 [ 40%]  (Warmup)
-Chain 4: Iteration: 1000 / 2000 [ 50%]  (Warmup)
-Chain 4: Iteration: 1001 / 2000 [ 50%]  (Sampling)
-Chain 4: Iteration: 1200 / 2000 [ 60%]  (Sampling)
-Chain 4: Iteration: 1400 / 2000 [ 70%]  (Sampling)
-Chain 4: Iteration: 1600 / 2000 [ 80%]  (Sampling)
-Chain 4: Iteration: 1800 / 2000 [ 90%]  (Sampling)
-Chain 4: Iteration: 2000 / 2000 [100%]  (Sampling)
-Chain 4: 
-Chain 4:  Elapsed Time: 151.058 seconds (Warm-up)
-Chain 4:                146.161 seconds (Sampling)
-Chain 4:                297.219 seconds (Total)</code></pre>
-<p>Note that even though we’ve preemptively set <code>adapt_delta = 0.99</code> given the previous model’s performance, it will be easy to run into problems with the additional dimensions we’ve added to the posterior. We’ll touch on a common solution, when needed, at the end. For now the model has finished calibration without any warnings.</p>
+<p>Note that even though we’ve preemptively set <code>adapt_delta = 0.99</code> given the previous model’s performance, it will be easy to run into problems as we add more complexity to the posterior. We’ll touch on a common solution at the end. For now the model has finished calibration without any warnings.</p>
 <p>Let’s evaluate trace plots.</p>
 <pre class="r"><code># Check population model trace plots.
 gamma_string &lt;- str_c(&quot;Gamma[&quot;, 1:data$J, &quot;,&quot;, 1, &quot;]&quot;)
@@ -507,7 +474,7 @@ fit %&gt;%
       labeller = label_parsed
     )
   )</code></pre>
-<p><img src="Figures/mcmc_trace-02a.png" width="1000" /></p>
+<p><img src="figures/hierarchical_mcmc_trace-02a.png" width="1000" /></p>
 <pre class="r"><code># Check observation model trace plots.
 beta_string &lt;- str_c(&quot;Beta[&quot;, 1:data$K, &quot;,&quot;, 1, &quot;]&quot;)
 for (i in 2:data$I) {
@@ -524,9 +491,8 @@ fit %&gt;%
       labeller = label_parsed
     )
   )</code></pre>
-<p><img src="Figures/mcmc_trace-02b.png" width="1000" /></p>
-<p>Once again, we have good mixing and clear convergence across all chains, now for our many model parameters.</p>
-<p>Finally, we can demonstrate parameter recovery.</p>
+<p><img src="figures/hierarchical_mcmc_trace-02b.png" width="1000" /></p>
+<p>Once again, we have good mixing and clear convergence across all chains, now to demonstrate parameter recovery for our many model parameters.</p>
 <pre class="r"><code># Recover Gamma values.
 gamma_values &lt;- tibble(
   j = sort(rep(1:(data$J), data$I)),
@@ -548,7 +514,7 @@ fit %&gt;%
     ncol = data$I,
     scales = &quot;free&quot;
   )</code></pre>
-<p><img src="Figures/marginals-02a.png" width="1000" /></p>
+<p><img src="figures/hierarchical_marginals-02a.png" width="1000" /></p>
 <pre class="r"><code># Recover Beta values.
 beta_values &lt;- tibble(
   n = sort(rep(1:(data$K), data$I)),
@@ -570,7 +536,7 @@ fit %&gt;%
     ncol = data$I,
     scales = &quot;free&quot;
   )</code></pre>
-<p><img src="Figures/marginals-02b.png" width="1000" /></p>
+<p><img src="figures/hierarchical_marginals-02b.png" width="1000" /></p>
 <pre class="r"><code># Recover tau and sigma values.
 hyper_par_values &lt;- tibble(
   .variable = c(&quot;tau&quot;, &quot;sigma&quot;),
@@ -587,13 +553,14 @@ fit %&gt;%
     nrow = 2,
     scales = &quot;free&quot;
   )</code></pre>
-<p><img src="Figures/marginals-02c.png" width="1000" />
-All the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a multiple hierarchical regression model in Stan – with covariates at both the observation and population levels, generated data according to that model, and used the generated data to demonstrate that the model is working.</p>
+<p><img src="figures/hierarchical_marginals-02c.png" width="1000" /></p>
+<p>All the assumed hyperparameter and parameter values have been recovered by the model! To summarize, we have now specified a multiple hierarchical regression model in Stan – with covariates at both the observation and population levels – generated data according to that model, and used the generated data to demonstrate that the model is working.</p>
 </div>
 <div id="final-thoughts" class="section level2">
 <h2>Final thoughts</h2>
-<p>While we haven’t touched on a complete Bayesian inference workflow, including evaluating prior and likelihood specifications using prior and posterior predictive checks, hopefully this provides a helpful starting point for using hierarchical models in Stan. While our model didn’t require it, the <a href="https://arxiv.org/abs/1312.0906">posterior geometry of hierarchical models typically requires a non-centered parameterization</a>.</p>
-<p>Hierarchical models provide partial information pooling, a middle-ground between no information pooling (i.e., separate non-hierarchical models for each group) and complete information pooling (i.e., a single non-hierarchical model). They allow for covariates and parameter estimation at both the observation and population levels. Most importantly, they allow for modeling heterogeneity – differences across groups. Given the prevalence of heterogeneity, hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation.</p>
+<p>While we haven’t touched on a complete Bayesian inference workflow, including evaluating prior and likelihood specifications using prior and posterior predictive checks, hopefully this provides a helpful starting point for using hierarchical models in Stan.</p>
+<p>Note that we assumed throughout that the population model has a common variance. Relaxing this assumption requires that the population model be distributed multivariate normal with an accompanying covariance matrix, a far more flexible population model specification but one that adds enough complexity to the posterior geometry to <a href="https://arxiv.org/abs/1312.0906">require a non-centered parameterization</a>. We’ll follow up on this topic in its own blog post.</p>
+<p>Hierarchical models provide partial information pooling, a middle-ground between no information pooling (i.e., separate flat or non-hierarchical models for each group), which may not be possible, and complete information pooling (i.e., a single flat or non-hierarchical model), which provides limited inference. They also allow for covariates and parameter estimation at both the observation and population levels. To summarize, hierarchical models allow us to appropriately model heterogeneity – differences across groups. Given the prevalence of heterogeneity, hierarchical models should be our default approach in most applications and Stan removes the barriers to entry for the required Bayesian computation.</p>
 <hr />
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>

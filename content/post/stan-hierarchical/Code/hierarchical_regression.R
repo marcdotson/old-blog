@@ -7,8 +7,9 @@ library(tidybayes)
 
 # Set Stan options.
 options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 
-# 00 Simple Regression ----------------------------------------------------
+# Simple Flat Regression --------------------------------------------------
 # Specify data and parameter values.
 sim_values <- list(
   N = 100, # Number of observations.
@@ -18,7 +19,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_00.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_flat_data.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -37,7 +38,7 @@ data <- list(
 
 # Calibrate the model.
 fit <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "regression.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "flat_regression.stan"),
   data = data,
   seed = 42
 )
@@ -51,7 +52,7 @@ fit %>%
   )
 
 ggsave(
-  "mcmc_trace-00.png",
+  "flat_mcmc_trace.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
@@ -74,12 +75,12 @@ fit %>%
   )
 
 ggsave(
-  "marginals-00.png",
+  "flat_marginals.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
 
-# 01 Simple Hierarchical Regression ---------------------------------------
+# Simple Hierarchical Regression ------------------------------------------
 # Specify data and hyperparameter values.
 sim_values <- list(
   N = 500,                            # Number of observations.
@@ -92,7 +93,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_01.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_hierarchical_data_01.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -129,7 +130,7 @@ fit %>%
   )
 
 ggsave(
-  "mcmc_trace-01.png",
+  "hierarchical_mcmc_trace-01.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 5, units = "in"
 )
@@ -157,7 +158,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-01a.png",
+  "hierarchical_marginals-01a.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 4, units = "in"
 )
@@ -174,12 +175,12 @@ fit %>%
   )
 
 ggsave(
-  "marginals-01b.png",
+  "hierarchical_marginals-01b.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 4, units = "in"
 )
 
-# 02 Multiple Hierarchical Regression -------------------------------------
+# Multiple Hierarchical Regression ----------------------------------------
 # Specify data and hyperparameter values.
 sim_values <- list(
   N = 500,                            # Number of observations.
@@ -206,7 +207,7 @@ sim_values <- list(
 
 # Generate data.
 sim_data <- stan(
-  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_data_02.stan"),
+  file = here::here("content", "post", "stan-hierarchical", "Code", "generate_hierarchical_data_02.stan"),
   data = sim_values,
   iter = 1,
   chains = 1,
@@ -257,7 +258,7 @@ fit %>%
   )
 
 ggsave(
-  "mcmc_trace-02a.png",
+  "hierarchical_mcmc_trace-02a.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 8, height = 8, units = "in"
 )
@@ -280,7 +281,7 @@ fit %>%
   )
 
 ggsave(
-  "mcmc_trace-02b.png",
+  "hierarchical_mcmc_trace-02b.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 8, height = 12, units = "in"
 )
@@ -308,7 +309,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-02a.png",
+  "hierarchical_marginals-02a.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 16, height = 8, units = "in"
 )
@@ -336,7 +337,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-02b.png",
+  "hierarchical_marginals-02b.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 16, height = 12, units = "in"
 )
@@ -359,7 +360,7 @@ fit %>%
   )
 
 ggsave(
-  "marginals-02c.png",
+  "hierarchical_marginals-02c.png",
   path = here::here("content", "post", "stan-hierarchical", "Figures"),
   width = 7, height = 3, units = "in"
 )
