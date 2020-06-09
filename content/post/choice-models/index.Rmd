@@ -1,8 +1,8 @@
 ---
 title: "Comparing choice model parameterizations"
 author: "Marc Dotson"
-date: '2020-06-15'
-slug: non-centered
+date: "2020-06-15"
+slug: choice-models
 ---
 
 Stan has considerable promise for making Bayesian inference more accessible in that it provides a high-level interface for using Hamiltonian Monte Carlo (HMC) and HMC-specific diagnostics. In **comparing choice models**, we will be comparing a random-walk Metropolis Hastings Markov chain Monte Carlo (MCMC) implementation of the standard choice model, a hierarchical multinomial logit (HMNL) model, with two different parameterizations of the same model in Stan.
