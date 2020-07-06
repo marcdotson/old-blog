@@ -5,25 +5,22 @@ date: "2020-07-15"
 slug: choice-models
 ---
 
-Choice models are common in marketing and other applications where researchers are interested in understanding the drivers of choice. Since choice is typically manifest as a non-binary discrete outcome, and we care about modeling customer heterogeneity, a hierarchical Bayesian multinomial logit model is our default specification.
 
-- Repeat observations allows for modeling differences across respondents instead of groups.
-- Is a non-centered parameterization required?
 
------
-
-In **comparing choice models**, we will be comparing a random-walk Metropolis Hastings Markov chain Monte Carlo (MCMC) implementation of the standard choice model, a hierarchical multinomial logit (HMNL) model, with two different parameterizations of the same model in Stan.
-
-## Model Specification
-
-The complete generative model composed of prior and likelihood may be parameterized in many different ways for the same model. Additionally, as we move beyond the constraints of conjugacy, we can explore a variety of different potential priors.
-
-The multivariate normal distribution of heterogeneity covariance matrix has a conjugate Inverse-Wishart for the choice model using MCMC. For both of the HMC parameterizations, an LKJ/Cauchy prior is used instead.
-
-### MCMC Conjugate Parameterization
-
-```{r, eval = FALSE}
-hier_mnl = function (Data, Prior, Mcmc, Cont) {
+<p>Choice models are common in marketing and other applications where researchers are interested in understanding the drivers of choice. Since choice is typically manifest as a non-binary discrete outcome, and we care about modeling customer heterogeneity, a hierarchical Bayesian multinomial logit model is our default specification.</p>
+<ul>
+<li>Repeat observations allows for modeling differences across respondents instead of groups.</li>
+<li>Is a non-centered parameterization required?</li>
+</ul>
+<hr />
+<p>In <strong>comparing choice models</strong>, we will be comparing a random-walk Metropolis Hastings Markov chain Monte Carlo (MCMC) implementation of the standard choice model, a hierarchical multinomial logit (HMNL) model, with two different parameterizations of the same model in Stan.</p>
+<div id="model-specification" class="section level2">
+<h2>Model Specification</h2>
+<p>The complete generative model composed of prior and likelihood may be parameterized in many different ways for the same model. Additionally, as we move beyond the constraints of conjugacy, we can explore a variety of different potential priors.</p>
+<p>The multivariate normal distribution of heterogeneity covariance matrix has a conjugate Inverse-Wishart for the choice model using MCMC. For both of the HMC parameterizations, an LKJ/Cauchy prior is used instead.</p>
+<div id="mcmc-conjugate-parameterization" class="section level3">
+<h3>MCMC Conjugate Parameterization</h3>
+<pre class="r"><code>hier_mnl = function (Data, Prior, Mcmc, Cont) {
   # This function implements an MCMC estimation algorithm for a hierarchical MNL with a multivariate 
   # normal distribution of heterogeneity.
   
@@ -67,7 +64,7 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
   itime = proc.time()[3]                # Initial clock time.
   
   # Initialize MCMC ---------------------------------------------------------
-  cat("MCMC Iteration (estimated time to end in hours | step | beta accept | llike )",fill=TRUE)
+  cat(&quot;MCMC Iteration (estimated time to end in hours | step | beta accept | llike )&quot;,fill=TRUE)
   
   # Initialize values.
   if (cont_ind == 0) {
@@ -86,7 +83,7 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
   }
   
   # Log-likelihood function for the MNL.
-  ll_mnl <- function (beta, y, X) {
+  ll_mnl &lt;- function (beta, y, X) {
     nvars = ncol(X)        # Number of attribute levels.
     nscns = length(y)      # Number of choice tasks.
     nalts = nrow(X)/nscns  # Number of alternatives.
@@ -116,8 +113,8 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
     for (resp in 1:nresp) {
       # Draw beta (random walk).
       beta_old = oldbetas[resp,]
-      if (r < (R/3)) beta_can = as.vector(rmvnorm(1,mean=beta_old,sigma=(step*oldVbeta)))
-      if (r >= (R/3)) beta_can = as.vector(rmvnorm(1,mean=beta_old,sigma=(step*Vbeta_fixed)))
+      if (r &lt; (R/3)) beta_can = as.vector(rmvnorm(1,mean=beta_old,sigma=(step*oldVbeta)))
+      if (r &gt;= (R/3)) beta_can = as.vector(rmvnorm(1,mean=beta_old,sigma=(step*Vbeta_fixed)))
       
       # Log likelihood with old and candidate beta draws.
       log_old = ll_mnl(beta_old,y[[resp]],X[[resp]])
@@ -129,13 +126,13 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
       
       # Compare the old and candidate posteriors and compute alpha (second-stage prior and proposal densities cancel out.)
       diff = exp((log_can + log_heter_can) - (log_old + log_heter_old))
-      if (diff == "NaN" || diff == Inf) {
-        alpha = -1 # If the number doesn't exist, always reject.
+      if (diff == &quot;NaN&quot; || diff == Inf) {
+        alpha = -1 # If the number doesn&#39;t exist, always reject.
       } else {
         alpha = min(1,diff)
       }
       unif = runif(1)
-      if (unif < alpha) {
+      if (unif &lt; alpha) {
         oldbetas[resp,] = beta_can
         naccept = naccept + 1
         loglike = loglike + log_can
@@ -154,13 +151,13 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
     
     # Houskeeping and Output --------------------------------------------------
     # Modify the RW step sizes to constrain acceptance rates in batches of 100 during burn-in (R/3).
-    if (r%%100 == 0 & cont_ind == 0) {
-      if (r < (R/3)) {
+    if (r%%100 == 0 &amp; cont_ind == 0) {
+      if (r &lt; (R/3)) {
         # Update step.
-        if (naccept/nresp < .20) {
+        if (naccept/nresp &lt; .20) {
           step = step*0.95
         }
-        if (naccept/nresp > .60) {
+        if (naccept/nresp &gt; .60) {
           step = step*1.05
         }
       }
@@ -171,13 +168,13 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
       ctime = proc.time()[3]
       timetoend = ((ctime - itime)/r)*(R - r)
       bacceptr=naccept/nresp
-      cat(" ",r," (",round((timetoend/60)/60,2),"|",round(step,5),"|",round(bacceptr,2),"|",round(loglike,2),")",fill = TRUE)
+      cat(&quot; &quot;,r,&quot; (&quot;,round((timetoend/60)/60,2),&quot;|&quot;,round(step,5),&quot;|&quot;,round(bacceptr,2),&quot;|&quot;,round(loglike,2),&quot;)&quot;,fill = TRUE)
     }
     
     # Print chart less often.
     if (r%%100 == 0) {
       par(mfrow=c(2,1))
-      plot(llikedraw,type="l"); matplot(Gammadraw,type="l")
+      plot(llikedraw,type=&quot;l&quot;); matplot(Gammadraw,type=&quot;l&quot;)
     }
     
     # Save the posterior draws.
@@ -200,32 +197,30 @@ hier_mnl = function (Data, Prior, Mcmc, Cont) {
   
   # Print total run time.
   ctime = proc.time()[3]
-  cat(" Total Time Elapsed (in Hours): ",round(((ctime - itime)/60)/60,2),fill = TRUE)
+  cat(&quot; Total Time Elapsed (in Hours): &quot;,round(((ctime - itime)/60)/60,2),fill = TRUE)
   
   # Output.
   return(list(betadraw=betadraw,Gammadraw=Gammadraw,Vbetadraw=Vbetadraw,
     llikedraw=llikedraw,acceptdraw=acceptdraw,stepdraw=stepdraw,Cont=Cont))
-}
-```
-
-### HMC Centered Parameterization
-
-```{stan, output.var = "example", eval = FALSE}
-// Data values, hyperparameters, observed choices, and the experimental design.
+}</code></pre>
+</div>
+<div id="hmc-centered-parameterization" class="section level3">
+<h3>HMC Centered Parameterization</h3>
+<pre class="stan"><code>// Data values, hyperparameters, observed choices, and the experimental design.
 data {
-  int<lower = 1> N;                  // Number of respondents.
-  int<lower = 1> S;                  // Number of choice tasks per respondent.
-  int<lower = 2> P;                  // Number of product alternatives per choice task.
-  int<lower = 1> L;                  // Number of (estimable) attribute levels.
-  int<lower = 1> C;                  // Number of respondent-level covariates.
+  int&lt;lower = 1&gt; N;                  // Number of respondents.
+  int&lt;lower = 1&gt; S;                  // Number of choice tasks per respondent.
+  int&lt;lower = 2&gt; P;                  // Number of product alternatives per choice task.
+  int&lt;lower = 1&gt; L;                  // Number of (estimable) attribute levels.
+  int&lt;lower = 1&gt; C;                  // Number of respondent-level covariates.
   
   real Theta_mean;                   // Mean of coefficients for the heterogeneity model.
-  real<lower=0> Theta_scale;         // Scale of coefficients for the heterogeneity model.
+  real&lt;lower=0&gt; Theta_scale;         // Scale of coefficients for the heterogeneity model.
   real tau_mean;                     // Mean of scale parameters for the heterogeneity model.
-  real<lower=0> tau_scale;           // Scale of scale parameters for the heterogeneity model.
-  real<lower=0> Omega_shape;         // Shape of correlation matrix for the heterogeneity model.
+  real&lt;lower=0&gt; tau_scale;           // Scale of scale parameters for the heterogeneity model.
+  real&lt;lower=0&gt; Omega_shape;         // Shape of correlation matrix for the heterogeneity model.
   
-  int<lower = 1, upper = P> Y[N, S]; // Matrix of observed choices.
+  int&lt;lower = 1, upper = P&gt; Y[N, S]; // Matrix of observed choices.
   matrix[P, L] X[N, S];              // Array of experimental designs per choice task.
   matrix[N, C] Z;                    // Matrix of respondent-level covariates.
 }
@@ -234,7 +229,7 @@ data {
 parameters {
   matrix[N, L] Beta;                 // Matrix of beta (part-worth) coefficients.
   matrix[L, C] Theta;                // Matrix of coefficients for the heterogeneity model.
-  vector<lower = 0>[L] tau;          // Vector of scale parameters for the heterogeneity model.
+  vector&lt;lower = 0&gt;[L] tau;          // Vector of scale parameters for the heterogeneity model.
   corr_matrix[L] Omega;              // Correlation matrix for the heterogeneity model.
 }
 
@@ -253,32 +248,30 @@ model {
   
   // Hierarchical multinomial logit.
   for (n in 1:N) {
-    Beta[n,] ~ multi_normal(Theta * Z[n,]', Sigma);
+    Beta[n,] ~ multi_normal(Theta * Z[n,]&#39;, Sigma);
     for (s in 1:S) {
-      Y[n, s] ~ categorical_logit(X[n, s] * Beta[n,]');
+      Y[n, s] ~ categorical_logit(X[n, s] * Beta[n,]&#39;);
     }
   }
-}
-```
-
-### HMC Non-Centered Parameterization
-
-```{stan, output.var = "example", eval = FALSE}
-// Data values, hyperparameters, observed choices, and the experimental design.
+}</code></pre>
+</div>
+<div id="hmc-non-centered-parameterization" class="section level3">
+<h3>HMC Non-Centered Parameterization</h3>
+<pre class="stan"><code>// Data values, hyperparameters, observed choices, and the experimental design.
 data {
-  int<lower = 1> N;                  // Number of respondents.
-  int<lower = 1> S;                  // Number of choice tasks per respondent.
-  int<lower = 2> P;                  // Number of product alternatives per choice task.
-  int<lower = 1> L;                  // Number of (estimable) attribute levels.
-  int<lower = 1> C;                  // Number of respondent-level covariates.
+  int&lt;lower = 1&gt; N;                  // Number of respondents.
+  int&lt;lower = 1&gt; S;                  // Number of choice tasks per respondent.
+  int&lt;lower = 2&gt; P;                  // Number of product alternatives per choice task.
+  int&lt;lower = 1&gt; L;                  // Number of (estimable) attribute levels.
+  int&lt;lower = 1&gt; C;                  // Number of respondent-level covariates.
   
   real Theta_mean;                   // Mean of coefficients for the heterogeneity model.
-  real<lower=0> Theta_scale;         // Scale of coefficients for the heterogeneity model.
+  real&lt;lower=0&gt; Theta_scale;         // Scale of coefficients for the heterogeneity model.
   real alpha_mean;                   // Mean of scale for the heterogeneity model.
-  real<lower=0> alpha_scale;         // Scale of scale for the heterogeneity model.
-  real<lower=0> lkj_corr_shape;      // Shape of correlation matrix for the heterogeneity model.
+  real&lt;lower=0&gt; alpha_scale;         // Scale of scale for the heterogeneity model.
+  real&lt;lower=0&gt; lkj_corr_shape;      // Shape of correlation matrix for the heterogeneity model.
   
-  int<lower = 1, upper = P> Y[N, S]; // Matrix of observed choices.
+  int&lt;lower = 1, upper = P&gt; Y[N, S]; // Matrix of observed choices.
   matrix[P, L] X[N, S];              // Array of experimental designs per choice task.
   matrix[N, C] Z;                    // Matrix of respondent-level covariates.
 }
@@ -286,7 +279,7 @@ data {
 // Parameters for the hierarchical multinomial logit.
 parameters {
   matrix[L, C] Theta;                        // Matrix of coefficients for the heterogeneity model.
-  vector<lower=0, upper=pi()/2>[L] tau_unif; // Initialized parameter value for a Cauchy draw.
+  vector&lt;lower=0, upper=pi()/2&gt;[L] tau_unif; // Initialized parameter value for a Cauchy draw.
   cholesky_factor_corr[L] L_Omega;           // Cholesky factorization for heterogeneity covariance.
   matrix[L, N] alpha;                        // Standard deviations for heterogeneity covariance.
 }
@@ -294,11 +287,11 @@ parameters {
 // Deterministically transformed parameter values.
 transformed parameters {
   matrix[N, L] Beta;                              // Matrix of Beta coefficients.
-  vector<lower=0>[L] tau;                         // Scale for heterogeneity covariance.
+  vector&lt;lower=0&gt;[L] tau;                         // Scale for heterogeneity covariance.
   for (l in 1:L) tau[l] = 2.5 * tan(tau_unif[l]); // Inverse probability Cauchy draw.
   
   // Draw of Beta following non-centered parameterization.
-  Beta = Z * Theta' + (diag_pre_multiply(tau,L_Omega) * alpha)';
+  Beta = Z * Theta&#39; + (diag_pre_multiply(tau,L_Omega) * alpha)&#39;;
 }
 
 // Hierarchical multinomial logit model.
@@ -311,64 +304,63 @@ model {
   // Hierarchical multinomial logit.
   for (n in 1:N) {
     for (s in 1:S) {
-      Y[n, s] ~ categorical_logit(X[n, s] * Beta[n,]');
+      Y[n, s] ~ categorical_logit(X[n, s] * Beta[n,]&#39;);
     }
   }
-}
-```
-
-## Simulation Experiment
-
-### Simulating Data
-
-```{r, eval = FALSE}
-# Set the seed.
+}</code></pre>
+</div>
+</div>
+<div id="simulation-experiment" class="section level2">
+<h2>Simulation Experiment</h2>
+<div id="simulating-data" class="section level3">
+<h3>Simulating Data</h3>
+<pre class="r"><code># Set the seed.
 set.seed(42)
 
-N <- 500          # Number of respondents.
-S <- 10           # Number of choice tasks per respondent.
-P <- 4            # Number of alternatives per choice task.
-L <- 12           # Number of (estimable) attribute levels.
-C <- 1            # Number of covariates.
+N &lt;- 500          # Number of respondents.
+S &lt;- 10           # Number of choice tasks per respondent.
+P &lt;- 4            # Number of alternatives per choice task.
+L &lt;- 12           # Number of (estimable) attribute levels.
+C &lt;- 1            # Number of covariates.
 
 # True Theta (C x L) values and Sigma (L x L) values.
-Theta <- matrix(runif(C * L, -3, 4), byrow = FALSE, nrow = C, ncol = L)
-Sigma <- diag(L) + .5 * matrix(1, nrow = L, ncol = 1) %*% t(matrix(1, nrow = L, ncol = 1))
+Theta &lt;- matrix(runif(C * L, -3, 4), byrow = FALSE, nrow = C, ncol = L)
+Sigma &lt;- diag(L) + .5 * matrix(1, nrow = L, ncol = 1) %*% t(matrix(1, nrow = L, ncol = 1))
 
 # Generate Y, X, Z, and Beta.
-Y <- matrix(NA, nrow = N, ncol = S)
-X <- array(NA, dim = c(N, S, P, L))
-Z <- matrix(NA, nrow = N, ncol = C)
-Beta <- matrix(NA, nrow = N, ncol = L)
-Y_list = X_list <- NULL
+Y &lt;- matrix(NA, nrow = N, ncol = S)
+X &lt;- array(NA, dim = c(N, S, P, L))
+Z &lt;- matrix(NA, nrow = N, ncol = C)
+Beta &lt;- matrix(NA, nrow = N, ncol = L)
+Y_list = X_list &lt;- NULL
 for (n in 1:N) {
   # Generate covariates for the distribution of heterogeneity.
-  Z[n, 1] <- 1
-  if (C > 1) Z[n, -1] <- c(z_temp, round(runif(C - 1)))
+  Z[n, 1] &lt;- 1
+  if (C &gt; 1) Z[n, -1] &lt;- c(z_temp, round(runif(C - 1)))
   
   # Generate individual-level betas.
-  Beta[n,] <- mvtnorm::rmvnorm(1, mean=t(Theta) %*% Z[n,], sigma = Sigma)
+  Beta[n,] &lt;- mvtnorm::rmvnorm(1, mean=t(Theta) %*% Z[n,], sigma = Sigma)
   
   # Compute the latent utility a scenario at a time.
-  X_temp <- NULL
+  X_temp &lt;- NULL
   for (s in 1:S) {
     # Generate or draw the design matrix for the given scenario.
-    X[n, s,,] <- matrix(round(runif(P * L)), nrow = P, ncol = L)
+    X[n, s,,] &lt;- matrix(round(runif(P * L)), nrow = P, ncol = L)
     
     # Compute and the latent utility for each alternative and find the max.
-    U <- X[n, s,,] %*% Beta[n,] + matrix((-log(-log(runif(P)))), ncol = 1)
-    Y[n, s] <- which(U == max(U))
+    U &lt;- X[n, s,,] %*% Beta[n,] + matrix((-log(-log(runif(P)))), ncol = 1)
+    Y[n, s] &lt;- which(U == max(U))
     
     # Save out each design matrix as a list.
-    X_temp <- rbind(X_temp, X[n, s,,])
+    X_temp &lt;- rbind(X_temp, X[n, s,,])
   }
   
-  # Also save out each respondent's data as a list.
-  Y_list[[n]] <- Y[n,]
-  X_list[[n]] <- X_temp
+  # Also save out each respondent&#39;s data as a list.
+  Y_list[[n]] &lt;- Y[n,]
+  X_list[[n]] &lt;- X_temp
 }
 
-sim_data <- list(
+sim_data &lt;- list(
   Y = Y,
   X = X,
   Z = Z,
@@ -377,13 +369,11 @@ sim_data <- list(
   Theta = Theta,
   Sigma = Sigma,
   Beta = Beta
-)
-```
-
-### Model Calibration
-
-```{r, eval = FALSE}
-# Preamble ----------------------------------------------------------------
+)</code></pre>
+</div>
+<div id="model-calibration" class="section level3">
+<h3>Model Calibration</h3>
+<pre class="r"><code># Preamble ----------------------------------------------------------------
 # Load packages.
 library(tidyverse)
 library(rstan)
@@ -393,12 +383,12 @@ rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
 
 # Load simulated data.
-sim_data <- read_rds(here::here("Data", "hmnl_sim_data.RDS"))
+sim_data &lt;- read_rds(here::here(&quot;Data&quot;, &quot;hmnl_sim_data.RDS&quot;))
 
 # Indicate the model to run.
-hmnl_conjugate <- 1
-hmnl_centered <- 0
-hmnl_noncentered <- 0
+hmnl_conjugate &lt;- 1
+hmnl_centered &lt;- 0
+hmnl_noncentered &lt;- 0
 
 # MCMC Conjugate Parameterization -----------------------------------------
 if (hmnl_conjugate == 1) {
@@ -432,17 +422,17 @@ if (hmnl_conjugate == 1) {
   )
   
   # Calibrate the model.
-  source(here::here("Code", "hmnl-conjugate_estimate.R"))
-  fit <- hier_mnl(Data, Prior, Mcmc)
+  source(here::here(&quot;Code&quot;, &quot;hmnl-conjugate_estimate.R&quot;))
+  fit &lt;- hier_mnl(Data, Prior, Mcmc)
   
   # Save model output.
-  write_rds(fit, here::here("Output", "hmnl-conjugate_fit.RDS"))
+  write_rds(fit, here::here(&quot;Output&quot;, &quot;hmnl-conjugate_fit.RDS&quot;))
 }
 
 # HMC Centered Parameterization -------------------------------------------
 if (hmnl_centered == 1) {
   # Specify the data for calibration in a list.
-  data <- list(
+  data &lt;- list(
     N = nrow(sim_data$Y),    # Number of respondents.
     S = ncol(sim_data$Y),    # Number of choice tasks per respondent.
     P = dim(sim_data$X)[3],  # Number of product alternatives per choice task.
@@ -461,20 +451,20 @@ if (hmnl_centered == 1) {
   )
   
   # Calibrate the model.
-  fit <- stan(
-    file = here::here("Code", "hmnl-centered_estimate.stan"),
+  fit &lt;- stan(
+    file = here::here(&quot;Code&quot;, &quot;hmnl-centered_estimate.stan&quot;),
     data = data,
     seed = 42
   )
   
   # Save model output.
-  write_rds(fit, here::here("Output", "hmnl-centered_fit.RDS"))
+  write_rds(fit, here::here(&quot;Output&quot;, &quot;hmnl-centered_fit.RDS&quot;))
 }
 
 # HMC Non-Centered Parameterization ---------------------------------------
 if (hmnl_noncentered == 1) {
   # Specify the data for calibration in a list.
-  data <- list(
+  data &lt;- list(
     N = nrow(sim_data$Y),    # Number of respondents.
     S = ncol(sim_data$Y),    # Number of choice tasks per respondent.
     P = dim(sim_data$X)[3],  # Number of product alternatives per choice task.
@@ -493,65 +483,58 @@ if (hmnl_noncentered == 1) {
   )
   
   # Calibrate the model.
-  fit <- stan(
-    file = here::here("Code", "hmnl-noncentered_estimate.stan"),
+  fit &lt;- stan(
+    file = here::here(&quot;Code&quot;, &quot;hmnl-noncentered_estimate.stan&quot;),
     data = data,
     seed = 42
   )
   
   # Save model output.
-  write_rds(fit, here::here("Output", "hmnl-noncentered_fit.RDS"))
-}
-```
-
-### Computational Complexity
-
-- MCMC Conjugate Parameterization: Total Time Elapsed (in Hours):  1.49
-- HMC Centered Parameterization: 4036.11 seconds (Total)
-
-```{r}
-4036.11 / 60
-```
-
-
-- HMC Non-Centered Parameterization: 1858.35 seconds (Total)
-
-```{r}
-1858.35 / 60
-```
-
-### Model Performance
-
-#### MCMC Conjugate Parameterization
-
-We can't evaluate diverges and the traceplots look fair, though they have taken far longer to converge in the warm-up iterations. Note we only have a single chain and we had to run the model for 20,000 iterations.
-
-![](Figures/mcmc_trace_conjugate.png)
-
-#### HMC Centered Parameterization
-
-There are no divergences and the traceplots look reasonable. The model ran for 2,000 iterations.
-
-![](Figures/mcmc_trace_centered.png)
-
-#### HMC Non-Centered Parameterization
-
-There are no divergences and the traceplots indicate good mixing. The model ran for 2,000 iterations.
-
-![](Figures/mcmc_trace_noncentered.png)
-
-### Parameter Recovery
-
-Here we compare the marginal posteriors for each of the three specifications.
-
-![](Figures/mcmc_marginal_posteriors.png)
-
-The true values for each of the marginal posteriors is in red. The 95% credible interval is drawn below each posterior. Our of the 12 parameters, the MCMC recovers the true value 11 times, the HMC centered parameterization also recovers the true value 11 times, and the HMC non-centered parameterization recovers the true value only 7 times.
-
-Thus it appears that while the non-centered parameterization is faster, the centered parameterization does a better job. That said, this is for a single simulated dataset.
-
------
-
-### Marc Dotson
-
-Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on [Twitter](https://twitter.com/marcdotson) and [GitHub](https://github.com/marcdotson).
+  write_rds(fit, here::here(&quot;Output&quot;, &quot;hmnl-noncentered_fit.RDS&quot;))
+}</code></pre>
+</div>
+<div id="computational-complexity" class="section level3">
+<h3>Computational Complexity</h3>
+<ul>
+<li>MCMC Conjugate Parameterization: Total Time Elapsed (in Hours): 1.49</li>
+<li>HMC Centered Parameterization: 4036.11 seconds (Total)</li>
+</ul>
+<pre class="r"><code>4036.11 / 60</code></pre>
+<pre><code>## [1] 67.2685</code></pre>
+<ul>
+<li>HMC Non-Centered Parameterization: 1858.35 seconds (Total)</li>
+</ul>
+<pre class="r"><code>1858.35 / 60</code></pre>
+<pre><code>## [1] 30.9725</code></pre>
+</div>
+<div id="model-performance" class="section level3">
+<h3>Model Performance</h3>
+<div id="mcmc-conjugate-parameterization-1" class="section level4">
+<h4>MCMC Conjugate Parameterization</h4>
+<p>We can’t evaluate diverges and the traceplots look fair, though they have taken far longer to converge in the warm-up iterations. Note we only have a single chain and we had to run the model for 20,000 iterations.</p>
+<p><img src="Figures/mcmc_trace_conjugate.png" /></p>
+</div>
+<div id="hmc-centered-parameterization-1" class="section level4">
+<h4>HMC Centered Parameterization</h4>
+<p>There are no divergences and the traceplots look reasonable. The model ran for 2,000 iterations.</p>
+<p><img src="Figures/mcmc_trace_centered.png" /></p>
+</div>
+<div id="hmc-non-centered-parameterization-1" class="section level4">
+<h4>HMC Non-Centered Parameterization</h4>
+<p>There are no divergences and the traceplots indicate good mixing. The model ran for 2,000 iterations.</p>
+<p><img src="Figures/mcmc_trace_noncentered.png" /></p>
+</div>
+</div>
+<div id="parameter-recovery" class="section level3">
+<h3>Parameter Recovery</h3>
+<p>Here we compare the marginal posteriors for each of the three specifications.</p>
+<p><img src="Figures/mcmc_marginal_posteriors.png" /></p>
+<p>The true values for each of the marginal posteriors is in red. The 95% credible interval is drawn below each posterior. Our of the 12 parameters, the MCMC recovers the true value 11 times, the HMC centered parameterization also recovers the true value 11 times, and the HMC non-centered parameterization recovers the true value only 7 times.</p>
+<p>Thus it appears that while the non-centered parameterization is faster, the centered parameterization does a better job. That said, this is for a single simulated dataset.</p>
+<hr />
+</div>
+<div id="marc-dotson" class="section level3">
+<h3>Marc Dotson</h3>
+<p>Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on <a href="https://twitter.com/marcdotson">Twitter</a> and <a href="https://github.com/marcdotson">GitHub</a>.</p>
+</div>
+</div>
