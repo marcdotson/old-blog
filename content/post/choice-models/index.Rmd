@@ -9,18 +9,20 @@ Choice models are common in marketing and other applications where researchers a
 
 In marketing, choice models are often employed in conjunction with conjoint experiments, a survey-based approach to eliciting preferences where respondents choose from sets of hypothetical product alternatives. Because the conjoint experiment produces repeat observations at the respondent level, [the groups in the hierarchical model](https://www.occasionaldivergences.com/post/stan-hierarchical/) are the respondents themselves.
 
-The goal of this post is to answer two questions with respect to choice models. First, does it matter if we use a non-centered parameterization for a hierarchical multinomial logit model? We have previously explored using a [non-centered parameterization](https://www.occasionaldivergences.com/post/non-centered/) for hierarchical regression and even argued that a non-centered parameterization should be our default approach in most applications. Second, how does using Hamilton Monte Carlo (HMC) via [Stan](https://mc-stan.org) for estimation compare to using random-walk Metropolis Hastings Markov chain Monte Carlo (MCMC), which is still the go-to estimation procedure for choice modeling in practice?
+Beyond specifying a choice model, the goal of this post is to answer two questions with respect to choice models. First, does it matter if we use a non-centered parameterization for a hierarchical multinomial logit model? We have previously explored using a [non-centered parameterization](https://www.occasionaldivergences.com/post/non-centered/) for hierarchical regression and even argued that a non-centered parameterization should be our default approach in most applications. Second, how does using Hamilton Monte Carlo (HMC) via [Stan](https://mc-stan.org) for estimation compare to using random-walk Metropolis Hastings Markov chain Monte Carlo (MCMC), which is still the go-to estimation procedure for choice modeling in practice?
 
 To answer these questions, we will compare the specification and performance of three parameterizations of the hierarchical multinomial logit model: a centered parameterization which uses HMC, a non-centered parameterization which uses HMC, and what we will call a conjugate parameterization which uses MCMC.
 
 ## Centered parameterization
 
-- Start by explaining the process of a conjoint experiment.
-- Employ and explain specification for computational efficiency.
+Let's start with a centered parameterization of the hierarchical multinomial logit.
 
 ```{stan hmnl-centered, output.var="hmnl_centered", eval=FALSE}
 
 ```
+
+- Start by explaining the process of a conjoint experiment.
+- Employ and explain specification for computational efficiency.
 
 Generate data...
 
