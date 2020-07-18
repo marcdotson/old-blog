@@ -20,20 +20,24 @@ data {
 generated quantities {
   int<lower = 1, upper = A> Y[R, S]; // Matrix of observations.
   matrix[R, I] Beta;                 // Matrix of beta (part-worth) coefficients.
-  matrix[I, J] Theta;                // Matrix of coefficients for the heterogeneity model.
+  matrix[J, I] Theta;                // Matrix of coefficients for the heterogeneity model.
   vector<lower = 0>[I] tau;          // Vector of scale parameters for the heterogeneity model.
   corr_matrix[I] Omega;              // Correlation matrix for the heterogeneity model.
 
   // Draw parameter values and generate data.
-  to_vector(Theta) ~ normal(Theta_mean, Theta_scale);
-  tau ~ cauchy(tau_mean, tau_scale);
-  Omega ~ lkj_corr(Omega_shape);
-
-  cov_matrix[I] Sigma = quad_form_diag(Omega, tau);
+  for (j in 1:J) {
+    for (i in 1:I) {
+      Theta[j, i] = normal_rng(Theta_mean, Theta_scale);
+    }
+  }
+  for (i in 1:I) {
+    tau[i] = cauchy_rng(tau_mean, tau_scale);
+  }
+  Omega = lkj_corr_rng(I, Omega_shape);
   for (r in 1:R) {
-    Beta[r,] ~ multi_normal(Theta * Z[r,]', Sigma);
+    Beta[r,] = multi_normal_rng(Z[r,] * Theta, quad_form_diag(Omega, tau))';
     for (s in 1:S) {
-      Y[r, s] ~ categorical_logit(X[r, s] * Beta[r,]');
+      Y[r, s] = categorical_logit_rng(X[r, s] * Beta[r,]');
     }
   }
 }
