@@ -2,6 +2,10 @@
 # Load packages.
 library(tidyverse)
 library(rstan)
+library(bayesplot)
+library(tidybayes)
+library(ggridges)
+library(loo)
 
 # Set Stan options.
 rstan_options(auto_write = TRUE)
@@ -19,11 +23,11 @@ data <- list(
   I = dim(sim_data$X)[4],  # Number of (estimable) attribute levels.
   J = ncol(sim_data$Z),    # Number of respondent-level covariates.
 
-  Theta_mean = 0,          # Mean of coefficients for the heterogeneity model.
-  Theta_scale = 10,        # Scale of coefficients for the heterogeneity model.
-  tau_mean = 0,            # Mean of scale parameters for the heterogeneity model.
-  tau_scale = 2.5,         # Scale of scale parameters for the heterogeneity model.
-  Omega_shape = 2,         # Shape of correlation matrix for the heterogeneity model.
+  Theta_mean = 0,
+  Theta_scale = 10,
+  tau_mean = 0,
+  tau_scale = 2.5,
+  Omega_shape = 2,
 
   Y = sim_data$Y,          # Matrix of observed choices.
   X = sim_data$X,          # Array of experimental designs per choice task.
@@ -31,14 +35,71 @@ data <- list(
 )
 
 # Calibrate the model.
-fit <- stan(
+fit_centered <- stan(
   file = here::here("content", "post", "choice-models", "Code", "hmnl_centered.stan"),
   data = data,
+  iter = 6000,
+  thin = 3,
+  control = list(adapt_delta = 0.99),
   seed = 42
 )
 
 # Save model output.
-write_rds(fit, here::here("content", "post", "choice-models", "Output", "hmnl-centered_01.rds"))
+write_rds(
+  fit_centered,
+  here::here("content", "post", "choice-models", "Output", "hmnl-centered_02.rds")
+)
+
+# Load model output.
+fit_centered <- read_rds(
+  here::here("content", "post", "choice-models", "Output", "hmnl-centered_fit.rds")
+)
+
+# Model fit.
+loo(fit_centered)
+
+# Check trace plots.
+fit_centered %>%
+  extract(
+    inc_warmup = TRUE,
+    permuted = FALSE
+  ) %>%
+  mcmc_trace(
+    regex_pars = "Theta",
+    n_warmup = 1000,
+    facet_args = list(nrow = 2, labeller = label_parsed)
+  )
+
+ggsave(
+  "mcmc_trace_centered_01.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 12, height = 6, units = "in"
+)
+
+# Recover parameter values.
+Theta <- tibble(i = as.factor(1:ncol(sim_data$Theta)), Theta = t(sim_data$Theta))
+
+draws_centered <- fit_centered %>%
+  spread_draws(Theta[i, j]) %>%
+  select(.chain, .iteration, .draw, i, j, Theta) %>%
+  ungroup()
+
+draws_centered %>%
+  ggplot(aes(x = Theta)) +
+  geom_halfeyeh(.width = c(.95, .95)) +
+  facet_wrap(
+    ~ as.factor(i),
+    nrow = 3,
+    ncol = 4,
+    scales = "free_x"
+  ) +
+  geom_vline(aes(xintercept = Theta), Theta, color = "red")
+
+ggsave(
+  "mcmc_marginals_centered_01.png",
+  path = here::here("Figures"),
+  width = 12, height = 6, units = "in"
+)
 
 # Non-Centered Parameterization -------------------------------------------
 # Specify the data for calibration in a list.
@@ -107,9 +168,8 @@ fit <- hier_mnl(Data, Prior, Mcmc)
 # Save model output.
 write_rds(fit, here::here("content", "post", "choice-models", "Output", "hmnl-conjugate_01.rds"))
 
-# Model Check -------------------------------------------------------------
+# Model Fit ---------------------------------------------------------------
 # Load model output.
-fit_centered <- read_rds(here::here("Output", "hmnl-centered_fit.RDS"))
 fit_noncentered <- read_rds(here::here("Output", "hmnl-noncentered_fit.RDS"))
 fit_conjugate <- read_rds(here::here("Output", "hmnl-conjugate-20k_fit.RDS"))
 colnames(fit_conjugate$Gammadraw) <-
@@ -118,44 +178,8 @@ colnames(fit_conjugate$Gammadraw) <-
     "Theta[7,1]", "Theta[8,1]", "Theta[9,1]", "Theta[10,1]", "Theta[11,1]", "Theta[12,1]"
   )
 
-# Diagnostics.
-library(bayesplot)
-library(tidybayes)
-library(ggridges)
-source(here::here("Code", "stan_utility.R"))
-
-# Check for divergences (HMC-specific).
-check_div(fit_centered)
-check_div(fit_noncentered)
-
-# Check the effective sample size. (Not working for a hierarchical model?)
-check_n_eff(fit_centered)
-check_n_eff(fit_noncentered)
-check_n_eff(fit_conjugate)
-
-# Check the Rhat statistic. (Issues with mixing? Need to run longer?)
-check_rhat(fit_centered)
-check_rhat(fit_noncentered)
-check_rhat(fit_conjugate)
 
 # Check trace plots.
-fit_centered %>%
-  extract(
-    inc_warmup = TRUE,
-    permuted = FALSE
-  ) %>%
-  mcmc_trace(
-    regex_pars = "Theta",
-    n_warmup = 1000,
-    facet_args = list(nrow = 2, labeller = label_parsed)
-  )
-
-ggsave(
-  "mcmc_trace_centered.png",
-  path = here::here("Figures"),
-  width = 12, height = 6, units = "in"
-)
-
 fit_noncentered %>%
   extract(
     inc_warmup = TRUE,
