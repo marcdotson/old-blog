@@ -233,12 +233,33 @@ fit_centered <- stan(
 ```
 
 ```
-...
+Chain 1:  Elapsed Time: 14936.9 seconds (Warm-up)
+Chain 1:                15389.6 seconds (Sampling)
+Chain 1:                30326.5 seconds (Total)
+Chain 1: 
+Warning messages:
+1: There were 50 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See
+http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
+2: There were 3950 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See
+http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded 
+3: There were 4 chains where the estimated Bayesian Fraction of Missing Information was low. See
+http://mc-stan.org/misc/warnings.html#bfmi-low 
+4: Examine the pairs() plot to diagnose sampling problems
+ 
+5: The largest R-hat is NA, indicating chains have not mixed.
+Running the chains for more iterations may help. See
+http://mc-stan.org/misc/warnings.html#r-hat 
+6: Bulk Effective Samples Size (ESS) is too low, indicating posterior means and medians may be unreliable.
+Running the chains for more iterations may help. See
+http://mc-stan.org/misc/warnings.html#bulk-ess 
+7: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+http://mc-stan.org/misc/warnings.html#tail-ess 
 ```
 
 The HMC diagnostics suggest that the chains haven't mixed (`R-hat` and Bulk Effect Sample Size `ESS`). Despite running the chains for longer, we will get warnings about the reliability of the posterior estimates. Plus a single divergent transition. And at `6000` iterations, it takes `28507.7` seconds total to run the model.
 
-- Is this a function of the simulated data?
+- Is this a function of the simulated data? It doesn't seem to be.
 - Is that enough to demonstrate that the centered parameterization is faulty?
 - Does employing a more computational efficient specification help?
 

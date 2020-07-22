@@ -77,11 +77,11 @@ sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "s
 sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
 
 # Extract simulated data and parameters.
-sim_Y <- extract(sim_data)$Y
-sim_Gamma <- extract(sim_data)$Gamma
-sim_Omega <- extract(sim_data)$Omega
-sim_tau <- extract(sim_data)$tau
-sim_Beta <- extract(sim_data)$Beta
+sim_Y <- extract(sim_data)$Y[1,,]
+sim_Gamma <- extract(sim_data)$Gamma[1,,]
+sim_Omega <- extract(sim_data)$Omega[1,,]
+sim_tau <- extract(sim_data)$tau[1,]
+sim_Beta <- extract(sim_data)$Beta[1,,]
 
 # Centered Parameterization -----------------------------------------------
 data <- list(
