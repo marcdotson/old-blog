@@ -4,42 +4,109 @@ library(tidyverse)
 library(rstan)
 library(bayesplot)
 library(tidybayes)
-library(ggridges)
 library(loo)
 
 # Set Stan options.
-rstan_options(auto_write = TRUE)
 options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
 
-# Load simulated data.
-sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "hmnl_sim_data.rds"))
+# Generate Data -----------------------------------------------------------
+# Specify data and hyperprior values.
+sim_values <- list(
+  R = 500,           # Number of respondents.
+  S = 10,            # Number of choice tasks.
+  A = 4,             # Number of choice alternatives.
+  I = 12,            # Number of observation-level covariates.
+  J = 3,             # Number of population-level covariates.
 
-# Centered Parameterization -----------------------------------------------
-# Specify the data for calibration in a list.
-data <- list(
-  R = nrow(sim_data$Y),    # Number of respondents.
-  S = ncol(sim_data$Y),    # Number of choice tasks per respondent.
-  A = dim(sim_data$X)[3],  # Number of product alternatives per choice task.
-  I = dim(sim_data$X)[4],  # Number of (estimable) attribute levels.
-  J = ncol(sim_data$Z),    # Number of respondent-level covariates.
-
-  Theta_mean = 0,
-  Theta_scale = 10,
-  tau_mean = 0,
-  tau_scale = 2.5,
-  Omega_shape = 2,
-
-  Y = sim_data$Y,          # Matrix of observed choices.
-  X = sim_data$X,          # Array of experimental designs per choice task.
-  Z = sim_data$Z           # Matrix of respondent-level covariates.
+  Gamma_mean = 0,    # Mean of population-level means.
+  Gamma_scale = 5,   # Scale of population-level means.
+  Omega_shape = 2,   # Shape of population-level scale.
+  tau_df = 2         # Degrees of freedom of population-level scale.
 )
 
-# Calibrate the model.
+# Array of observation-level covariates.
+X <- array(
+  NA,
+  dim = c(sim_values$R, sim_values$S, sim_values$A, sim_values$I)
+)
+for (r in 1:sim_values$R) {
+  for (s in 1:sim_values$S) {
+    X[r, s, , ] <- matrix(
+      round(runif(sim_values$A * sim_values$I)),
+      nrow = sim_values$A,
+      ncol = sim_values$I
+    )
+  }
+}
+sim_values$X <- X
+
+# Matrix of population-level covariates.
+Z <- cbind(
+  rep(1, sim_values$R),
+  matrix(
+    runif(sim_values$R * (sim_values$J - 1), min = 2, max = 5),
+    nrow = sim_values$R
+  )
+)
+sim_values$Z <- Z
+
+# Generate data.
+sim_data <- stan(
+  file = here::here("content", "post", "choice-models", "Code", "generate_data.stan"),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = "Fixed_param"
+)
+
+# Save simulation values and data.
+write_rds(
+  sim_values,
+  path = here::here("content", "post", "choice-models", "Data", "sim_values.rds")
+)
+write_rds(
+  sim_data,
+  path = here::here("content", "post", "choice-models", "Data", "sim_data.rds")
+)
+
+# Load simulation values and data.
+# sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "old_sim_data.rds"))
+sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_values.rds"))
+sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
+
+# Extract simulated data and parameters.
+sim_Y <- extract(sim_data)$Y
+sim_Gamma <- extract(sim_data)$Gamma
+sim_Omega <- extract(sim_data)$Omega
+sim_tau <- extract(sim_data)$tau
+sim_Beta <- extract(sim_data)$Beta
+
+# Centered Parameterization -----------------------------------------------
+data <- list(
+  R = sim_values$R,    # Number of respondents.
+  S = sim_values$S,    # Number of choice tasks.
+  A = sim_values$A,    # Number of choice alternatives.
+  I = sim_values$I,    # Number of observation-level covariates.
+  J = sim_values$J,    # Number of population-level covariates.
+
+  Gamma_mean = 0,      # Mean of population-level means.
+  Gamma_scale = 5,     # Scale of population-level means.
+  Omega_shape = 2,     # Shape of population-level scale.
+  tau_mean = 0,        # Mean of population-level scale.
+  tau_scale = 5,       # Scale of population-level scale.
+
+  Y = sim_Y,           # Matrix of observations.
+  X = sim_values$X,    # Array of observation-level covariates.
+  Z = sim_values$Z     # Matrix of population-level covariates.
+)
+
 fit_centered <- stan(
   file = here::here("content", "post", "choice-models", "Code", "hmnl_centered.stan"),
   data = data,
-  iter = 6000,
-  thin = 3,
+  # iter = 6000,
+  # thin = 3,
   control = list(adapt_delta = 0.99),
   seed = 42
 )
