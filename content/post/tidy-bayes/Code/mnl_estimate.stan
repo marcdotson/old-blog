@@ -5,7 +5,7 @@ data {
   int N;             // Number of observations.
   int P;             // Number of product alternatives.
   int L;             // Number of (estimable) attribute levels.
-  
+
   int Y[N];          // Vector of observed choices.
   matrix[P, L] X[N]; // Array of experimental designs per observations.
 }
@@ -18,20 +18,20 @@ parameters {
 // Multinomial logit model.
 model {
   // Standard normal prior for beta.
-  beta ~ normal(0, 1);
-  
+  beta ~ normal(0, 5);
+
   // Multinomial logit.
   for (n in 1:N) {
     Y[n] ~ categorical_logit(X[n] * beta);
   }
 }
 
-// Generate draws from the posterior predictive distribution.
-generated quantities {
-  int yrep[N];      // Vector of predictions.
-
-  // Generate a prediction for each observation.
-  for (n in 1:N) {
-    yrep[n] = categorical_logit_rng(X[n] * beta);
-  }
-}
+// // Generate draws from the posterior predictive distribution.
+// generated quantities {
+//   int yrep[N];      // Vector of predictions.
+//
+//   // Generate a prediction for each observation.
+//   for (n in 1:N) {
+//     yrep[n] = categorical_logit_rng(X[n] * beta);
+//   }
+// }

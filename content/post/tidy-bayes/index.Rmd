@@ -1,7 +1,7 @@
 ---
 title: "A Tidy Bayesian Workflow"
 author: "Marc Dotson"
-date: '2020-07-01'
+date: '2020-09-01'
 slug: tidy-bayes
 ---
 
@@ -48,6 +48,8 @@ The summary statistic that is most informative for a model of choice is the impl
 ### Build a Generative Model
 
 Next, we translate our simplified expression of the conceptual model into a mathematical specification. The full model includes both the likelihood $p(y|\theta)$ (i.e., the data generating process) and the prior $p(\theta)$. We start simple both because we would prefer a simpler model if it performs just as well as a more complicated model and because we can build the model by adding complexity as needed. This is encoded by adding the `parameters` and `model` blocks in Stan. The specified model can be compared with competing models to build evidence for and against motivating theory. In this way we can view science as a sequence of models that serve as evidence in continuously revising and updating theory.
+
+- Note that the RNG functions match the dimensions of their arguments. If we input the same values for each of the random numbers, we need to use a for loop since it will be a single variate each time. That isn't a problem in terms of computational efficiency since these aren't sampling statements.
 
 #### Example: Multinomial Logit
 
@@ -192,6 +194,8 @@ tibble(probs) %>%
 ![](Figures/probs_plot.png)
 
 The prior predictive distribution doesn't have a spike at probability of 1, so our prior of `beta ~ normal(0, 1)` combined with the multinomial logit likelihood does not produce dominating alternatives. This part of the workflow typically requires some iteration in terms of model building, since the ways in which the prior and likelihood can combine aren't obvious. When there are issues, we can modify the prior and/or the likelihood until we see a joint distribution in terms of the prior predictive distribution that fits our domain expertise.
+
+- What about using a mosaic plot to check for dominating alternatives?
 
 ## Model Calibration
 
@@ -347,6 +351,15 @@ as.array(fit) %>%
 ![](Figures/mcmc_hist.png)
 
 Note that the true value of the parameter (in red) is within the default 90% confidence band of the marginal posterior. This is an example of the parameter value being recovered.
+
+What about the following warning? Running with default number of iterations results in:
+
+```
+Warning message:
+Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+http://mc-stan.org/misc/warnings.html#tail-ess 
+```
 
 ### Calibrate the Model with Real Data and Evaluate
 
