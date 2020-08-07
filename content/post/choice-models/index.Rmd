@@ -13,12 +13,6 @@ Beyond specifying a choice model, the goal of this post is to answer two questio
 
 To answer these questions, we will compare the specification and performance of three parameterizations of the hierarchical multinomial logit model: a centered parameterization which uses HMC, a non-centered parameterization which uses HMC, and what we will call a conjugate parameterization which uses MCMC.
 
-## Stan User's Guide parameterization
-
-```{stan mnl, output.var="mnl", eval=FALSE}
-
-```
-
 ## Centered parameterization
 
 Let's start with a centered parameterization of the hierarchical multinomial logit.

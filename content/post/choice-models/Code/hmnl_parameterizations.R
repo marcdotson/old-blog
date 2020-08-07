@@ -33,7 +33,8 @@ X <- array(
 for (r in 1:sim_values$R) {
   for (s in 1:sim_values$S) {
     X[r, s, , ] <- matrix(
-      round(runif(sim_values$A * sim_values$I)),
+      rnorm(sim_values$A * sim_values$I),          # Continuous predictors only.
+      # round(runif(sim_values$A * sim_values$I)), # Discrete predictors only.
       nrow = sim_values$A,
       ncol = sim_values$I
     )
@@ -61,20 +62,20 @@ sim_data <- stan(
   algorithm = "Fixed_param"
 )
 
-# Save simulation values and data.
-write_rds(
-  sim_values,
-  path = here::here("content", "post", "choice-models", "Data", "sim_values.rds")
-)
-write_rds(
-  sim_data,
-  path = here::here("content", "post", "choice-models", "Data", "sim_data.rds")
-)
-
-# Load simulation values and data.
-# sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "old_sim_data.rds"))
-sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_values.rds"))
-sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
+# # Save simulation values and data.
+# write_rds(
+#   sim_values,
+#   path = here::here("content", "post", "choice-models", "Data", "sim_values.rds")
+# )
+# write_rds(
+#   sim_data,
+#   path = here::here("content", "post", "choice-models", "Data", "sim_data.rds")
+# )
+#
+# # Load simulation values and data.
+# # sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "old_sim_data.rds"))
+# sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_values.rds"))
+# sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
 
 # Extract simulated data and parameters.
 sim_Y <- extract(sim_data)$Y[1,,]
