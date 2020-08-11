@@ -16,7 +16,8 @@ sim_values <- list(
   R = 500,           # Number of respondents.
   S = 10,            # Number of choice tasks.
   A = 4,             # Number of choice alternatives.
-  I = 12,            # Number of observation-level covariates.
+  L = c(3, 4, 5),    # Number of levels in each discrete attribute.
+  I = 12,            # Number of estimable attribute levels, including the brand intercept.
   J = 3,             # Number of population-level covariates.
 
   Gamma_mean = 0,    # Mean of population-level means.
@@ -32,12 +33,24 @@ X <- array(
 )
 for (r in 1:sim_values$R) {
   for (s in 1:sim_values$S) {
-    X[r, s, , ] <- matrix(
-      rnorm(sim_values$A * sim_values$I),          # Continuous predictors only.
-      # round(runif(sim_values$A * sim_values$I)), # Discrete predictors only.
-      nrow = sim_values$A,
-      ncol = sim_values$I
-    )
+    # Discrete predictors.
+    X_s <- NULL
+    for (l in 1:length(sim_values$L)) {
+      X_l <- NULL
+      for (a in 1:sim_values$A) {
+        X_a <- matrix(0, nrow = 1, ncol = sim_values$L[l])
+        X_a[1, sample(seq(1, sim_values$L[l]), 1)] <- 1
+        if (l == 1) X_l <- rbind(X_l, X_a)
+        if (l != 1) X_l <- rbind(X_l, X_a[, -1])
+      }
+      X_s <- cbind(X_s, X_l)
+    }
+    # Continuous predictors.
+    L_n <- sim_values$I - (sum(sim_values$L) - length(sim_values$L) + 1)
+    if(L_n != 0) {
+      X_s <- cbind(X_s, matrix(rnorm(sim_values$A * L_n), ncol = L_n))
+    }
+    X[r, s, , ] <- X_s
   }
 }
 sim_values$X <- X
@@ -62,20 +75,20 @@ sim_data <- stan(
   algorithm = "Fixed_param"
 )
 
-# # Save simulation values and data.
-# write_rds(
-#   sim_values,
-#   path = here::here("content", "post", "choice-models", "Data", "sim_values.rds")
-# )
-# write_rds(
-#   sim_data,
-#   path = here::here("content", "post", "choice-models", "Data", "sim_data.rds")
-# )
-#
-# # Load simulation values and data.
-# # sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "old_sim_data.rds"))
-# sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_values.rds"))
-# sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
+# Save simulation values and data.
+write_rds(
+  sim_values,
+  path = here::here("content", "post", "choice-models", "Data", "sim_values.rds")
+)
+write_rds(
+  sim_data,
+  path = here::here("content", "post", "choice-models", "Data", "sim_data.rds")
+)
+
+# Load simulation values and data.
+# sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "old_sim_data.rds"))
+sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_values.rds"))
+sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
 
 # Extract simulated data and parameters.
 sim_Y <- extract(sim_data)$Y[1,,]
@@ -115,13 +128,13 @@ fit_centered <- stan(
 # Save model output.
 write_rds(
   fit_centered,
-  here::here("content", "post", "choice-models", "Output", "hmnl-centered_02.rds")
+  here::here("content", "post", "choice-models", "Output", "hmnl-centered_test.rds")
 )
 
-# Load model output.
-fit_centered <- read_rds(
-  here::here("content", "post", "choice-models", "Output", "hmnl-centered_fit.rds")
-)
+# # Load model output.
+# fit_centered <- read_rds(
+#   here::here("content", "post", "choice-models", "Output", "hmnl-centered_fit.rds")
+# )
 
 # Model fit.
 loo(fit_centered)
@@ -172,21 +185,21 @@ ggsave(
 # Non-Centered Parameterization -------------------------------------------
 # Specify the data for calibration in a list.
 data <- list(
-  N = nrow(sim_data$Y),    # Number of respondents.
-  S = ncol(sim_data$Y),    # Number of choice tasks per respondent.
-  P = dim(sim_data$X)[3],  # Number of product alternatives per choice task.
-  L = dim(sim_data$X)[4],  # Number of (estimable) attribute levels.
-  C = ncol(sim_data$Z),    # Number of respondent-level covariates.
+  N = sim_values$R,    # Number of respondents.
+  S = sim_values$S,    # Number of choice tasks.
+  P = sim_values$A,    # Number of choice alternatives.
+  L = sim_values$I,    # Number of observation-level covariates.
+  C = sim_values$J,    # Number of population-level covariates.
 
-  Theta_mean = 0,          # Mean of coefficients for the heterogeneity model.
-  Theta_scale = 1,         # Scale of coefficients for the heterogeneity model.
-  alpha_mean = 0,          # Mean of scale for the heterogeneity model.
-  alpha_scale = 10,        # Scale of scale for the heterogeneity model.
-  lkj_corr_shape = 5,      # Shape of correlation matrix for the heterogeneity model.
+  Theta_mean = 0,      # Mean of coefficients for the heterogeneity model.
+  Theta_scale = 1,     # Scale of coefficients for the heterogeneity model.
+  alpha_mean = 0,      # Mean of scale for the heterogeneity model.
+  alpha_scale = 10,    # Scale of scale for the heterogeneity model.
+  lkj_corr_shape = 5,  # Shape of correlation matrix for the heterogeneity model.
 
-  Y = sim_data$Y,          # Matrix of observed choices.
-  X = sim_data$X,          # Array of experimental designs per choice task.
-  Z = sim_data$Z           # Matrix of respondent-level covariates.
+  Y = sim_Y,           # Matrix of observed choices.
+  X = sim_values$X,    # Array of experimental designs per choice task.
+  Z = sim_values$Z     # Matrix of respondent-level covariates.
 )
 
 # Calibrate the model.
@@ -197,7 +210,10 @@ fit <- stan(
 )
 
 # Save model output.
-write_rds(fit, here::here("content", "post", "choice-models", "Output", "hmnl-noncentered_01.rds"))
+write_rds(
+  fit,
+  here::here("content", "post", "choice-models", "Output", "hmnl-noncentered_test.rds")
+)
 
 # Conjugate Parameterization ----------------------------------------------
 # Specify the data for calibration in a list.
