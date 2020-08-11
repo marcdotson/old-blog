@@ -1,4 +1,5 @@
 # Post-specific.
 Code/*.rds
+Code/*.exe
 Data/*
 Output/*
