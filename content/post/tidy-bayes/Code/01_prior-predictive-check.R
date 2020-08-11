@@ -2,43 +2,45 @@
 library(tidyverse)
 library(rstan)
 
-rstan_options(auto_write = TRUE)
+# Set Stan options.
 options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Specify the number of simulated datasets.
+R <- 10
 
 # Specify the data values for simulation in a list.
 sim_values <- list(
-  N = 1000,          # Number of observations.
+  N = 500,           # Number of observations.
   P = 3,             # Number of product alternatives.
-  L = 2              # Number of (estimable) attribute levels.
+  A = c(3, 4, 5),    # Number of levels in each discrete attribute.
+  L = 12             # Number of estimable attribute levels, including the brand intercept.
 )
 # Experimental design for each observations.
 X <- NULL
+# X <- array(NA, c(sim_values$N, sim_values$P, sim_values$L))
 for (n in 1:sim_values$N) {
-  X[[n]] <- matrix(rnorm(sim_values$P * sim_values$L), ncol = sim_values$L)
+  # Discrete predictors.
+  X_n <- NULL
+  for (a in 1:length(sim_values$A)) {
+    X_a <- NULL
+    for (p in 1:sim_values$P) {
+      X_p <- matrix(0, nrow = 1, ncol = sim_values$A[a])
+      X_p[1, sample(seq(1, sim_values$A[a]), 1)] <- 1
+      if (a == 1) X_a <- rbind(X_a, X_p)
+      if (a != 1) X_a <- rbind(X_a, X_p[, -1])
+    }
+    X_n <- cbind(X_n, X_a)
+  }
+  # Continuous predictors.
+  L_n <- sim_values$L - (sum(sim_values$A) - length(sim_values$A) + 1)
+  if(L_n != 0) {
+    X_n <- cbind(X_n, matrix(rnorm(sim_values$P * L_n), ncol = L_n))
+  }
+  X[[n]] <- X_n
+  # X[n,,] <- X_n
 }
 sim_values$X <- X
-
-
-
-# # Array of observation-level covariates.
-# X <- array(
-#   NA,
-#   dim = c(sim_values$R, sim_values$S, sim_values$A, sim_values$I)
-# )
-# for (r in 1:sim_values$R) {
-#   for (s in 1:sim_values$S) {
-#     X[r, s, , ] <- matrix(
-#       round(runif(sim_values$A * sim_values$I)),
-#       nrow = sim_values$A,
-#       ncol = sim_values$I
-#     )
-#   }
-# }
-# sim_values$X <- X
-
-
-# Specify the number of draws (i.e., simulated datasets).
-R <- 1
 
 # Simulate data.
 sim_data <- stan(
@@ -52,8 +54,8 @@ sim_data <- stan(
   algorithm = "Fixed_param"
 )
 
-# saveRDS(sim_values, file = here::here("content", "post", "tidy-bayes", "Data", "sim_values.rds"))
-# saveRDS(sim_data, file = here::here("content", "post", "tidy-bayes", "Data", "sim_data.rds"))
+saveRDS(sim_values, file = here::here("content", "post", "tidy-bayes", "Data", "sim_values.rds"))
+saveRDS(sim_data, file = here::here("content", "post", "tidy-bayes", "Data", "sim_data.rds"))
 
 # Extract simulated data and parameters.
 sim_x <- sim_values$X

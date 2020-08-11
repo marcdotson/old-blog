@@ -28,10 +28,11 @@ model {
 
 // // Generate draws from the posterior predictive distribution.
 // generated quantities {
-//   int yrep[N];      // Vector of predictions.
+//   // Vector of predictions.
+//   int Y_new[N];
 //
 //   // Generate a prediction for each observation.
 //   for (n in 1:N) {
-//     yrep[n] = categorical_logit_rng(X[n] * beta);
+//     Y_new[n] = categorical_logit_rng(X[n] * beta);
 //   }
 // }

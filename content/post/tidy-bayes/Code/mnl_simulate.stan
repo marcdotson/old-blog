@@ -2,9 +2,9 @@
 data {
   int N;             // Number of observations.
   int P;             // Number of product alternatives.
-  int L;             // Number of (estimable) attribute levels.
+  int L;             // Number of estimable attribute levels.
 
-  matrix[P, L] X[N]; // Experimental design for each observations.
+  matrix[P, L] X[N]; // Experimental design for each observation.
 }
 
 // Simulate data according to the multinomial logit model.
@@ -19,12 +19,6 @@ generated quantities {
 
   // Generate an experimental design and draw data from the likelihood.
   for (n in 1:N) {
-    // for (p in 1:P) {
-    //   for (l in 1:L) {
-    //     X[n][p, l] = normal_rng(0, 5);
-    //     // X[n][p, l] = binomial_rng(1, 0.5);
-    //   }
-    // }
     Y[n] = categorical_logit_rng(X[n] * beta);
   }
 }
