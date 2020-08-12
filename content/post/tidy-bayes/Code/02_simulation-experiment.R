@@ -192,6 +192,8 @@ fit <- stan(
   seed = 42
 )
 
+loo(fit)
+
 # Check divergences.
 source(here::here("content", "post", "tidy-bayes", "Code", "stan_utility.R"))
 

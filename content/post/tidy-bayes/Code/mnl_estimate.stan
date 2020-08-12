@@ -26,13 +26,14 @@ model {
   }
 }
 
-// // Generate draws from the posterior predictive distribution.
-// generated quantities {
-//   // Vector of predictions.
-//   int Y_new[N];
-//
-//   // Generate a prediction for each observation.
-//   for (n in 1:N) {
-//     Y_new[n] = categorical_logit_rng(X[n] * beta);
-//   }
-// }
+// Quantities conditioned on parameter draws.
+generated quantities {
+  // vector[N] Y_new;   // Vector of predicted choices.
+  vector[N] log_lik; // Log likelihood to estimate loo.
+
+  // Multinomial logit draws and log likelihood per observation.
+  for (n in 1:N) {
+    // Y_new[n] = categorical_logit_rng(X[n] * beta);
+    log_lik[n] = categorical_logit_lpmf(Y[n] | X[n] * beta);
+  }
+}
