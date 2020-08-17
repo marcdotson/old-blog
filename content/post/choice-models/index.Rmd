@@ -18,36 +18,237 @@ We will specify and compare performance of a centered parameterization and a non
 Let's start with a centered parameterization of the hierarchical multinomial logit.
 
 ```{stan hmnl-centered, output.var="hmnl_centered", eval=FALSE}
+// Index values, hyperprior values, observations, and covariates.
+data {
+  int<lower = 1> R;                  // Number of respondents.
+  int<lower = 1> S;                  // Number of choice tasks.
+  int<lower = 2> A;                  // Number of choice alternatives.
+  int<lower = 1> I;                  // Number of observation-level covariates.
+  int<lower = 1> J;                  // Number of population-level covariates.
 
+  real Gamma_mean;                   // Mean of population-level means.
+  real<lower=0> Gamma_scale;         // Scale of population-level means.
+  real<lower=0> Omega_shape;         // Shape of population-level scale.
+  real tau_mean;                     // Mean of population-level scale.
+  real<lower=0> tau_scale;           // Scale of population-level scale.
+
+  int<lower = 1, upper = A> Y[R, S]; // Matrix of observations.
+  matrix[A, I] X[R, S];              // Array of observation-level covariates.
+  matrix[R, J] Z;                    // Matrix of population-level covariates.
+}
+
+// Parameters and hyperparameters.
+parameters {
+  matrix[J, I] Gamma;                // Matrix of population-level hyperparameters.
+  corr_matrix[I] Omega;              // Population model correlation matrix hyperparameters.
+  vector<lower = 0>[I] tau;          // Population model vector of scale hyperparameters.
+  matrix[R, I] Beta;                 // Matrix of observation-level parameters.
+}
+
+// Hierarchical multinomial logit.
+model {
+  // Hyperpriors.
+  to_vector(Gamma) ~ normal(Gamma_mean, Gamma_scale);
+  Omega ~ lkj_corr(Omega_shape);
+  tau ~ normal(tau_mean, tau_scale);
+
+  // Population model and likelihood.
+  for (r in 1:R) {
+    Beta[r,] ~ multi_normal(Z[r,] * Gamma, quad_form_diag(Omega, tau));
+    for (s in 1:S) {
+      Y[r, s] ~ categorical_logit(X[r, s] * Beta[r,]');
+    }
+  }
+}
 ```
 
-We'll save this Stan script as `hmnl_centered.stan`. In the `data` block, we have `R` respondents which each go through `S` choice tasks where each choice task has `A` choice alternatives to choose from. Thus there are `R * S` total observations where each observation takes on a value from `1` to `A`, the chosen alternative. At the observation level, the choice alternatives are defined by `I` covariates. These covariates are the attribute levels of the choice alternatives under consideration. At the population or group level, the respondents are defined by `J` covariates. These covariates are used to explain preference heterogeneity across respondents in the population and improve our ability to predict preferences.
+We'll save this Stan script as `hmnl_centered.stan`. In the `data` block, we have `R` respondents that each go through `S` choice tasks where each choice task has `A` choice alternatives to choose from. Thus there are `R * S` total observations where each observation takes on a value from `1` to `A`, the chosen alternative. At the observation level, the choice alternatives are defined by `I` covariates. These covariates are the attributes of the choice alternatives under consideration. At the population or group level, the respondents are defined by `J` covariates. These covariates are used to explain preference heterogeneity across respondents in the population and improve our ability to predict preferences.
 
-The `data` block also includes the hyperprior values. These define our hyperpriors on the hyperparameters in the population-level model, and can be more easily evaluated when specified as part of the `data` block rather than hard-coded in the `model` block.
+The `data` block also includes the hyperprior values. These define our hyperpriors on the hyperparameters in the population-level model, and can be more easily evaluated when specified as part of the `data` block rather than hard-coded in the `model` block. Finally, the observations are stored as a matrix `Y` where each of the `R` respondents' `S` choices are stored as a row while the observation-level covariates `X` is an `R x S` array where each element is the `A x I` matrix of covariates specific to that respondent and choice task.
+
+The `parameters` block includes the population-level hyperparameters `Gamma` or the coefficients associated with the population level covariates `Z`, the population-level hyperparameters `Omega` and `tau` which are the accompanying scale and correlation matrix of the population-level model, and the observation-level parameters `Beta`. Again, because a conjoint experiment produces repeat observations at the respondent level, we get a set of these `Beta` parameters for each respondent. These parameters are often referred to as part-worth utilities or preference parameters in the conjoint literature as they describe the preferences each respondent has for each of the attributes that define the choice alternatives. The hyperparameters thus explain population preference heterogeneity.
+
+The `model` block includes the specification of hyperpriors, using the hyperprior values specified as part of the `data` block, and the hierarchy of models: the population model on the `Beta` parameters and the observation model or likelihood on the observed choices. We use the helper function `to_vector()` to easily use a `normal()` hyperprior on the `Gamma` matrix. The reason for [decomposing the covariance matrix of the multivariate normal population model](https://www.occasionaldivergences.com/post/non-centered/) into a correlation matrix and a scale vector becomes clear as we can use an LKJ hyperprior on the correlation matrix `Omega` and a normal hyperprior on the scale vector `tau`. We then reform the covariance matrix using `quad_form_diag()` as part of the multivariate population model. Note that `categorical_logit()` is the multinomial logit likelihood and that it must be used within nested for loops since it isn't vectorized. Also note that since `Beta` is a matrix where each row is a vector of respondent-specific observations, the vector output of `multi_normal` is transposed as part of the likelihood.
 
 Since Bayesian models are generative, we can translate this Stan script into `data` and `generated quantities` blocks and use Stan to generate data for us.
 
-```{stan generate-data, output.var="generate_data", eval=FALSE}
+```{stan generate-data-01, output.var="generate_data", eval=FALSE}
+// Index values, hyperprior values, and covariates.
+data {
+  int<lower = 1> R;                  // Number of respondents.
+  int<lower = 1> S;                  // Number of choice tasks.
+  int<lower = 2> A;                  // Number of choice alternatives.
+  int<lower = 1> I;                  // Number of observation-level covariates.
+  int<lower = 1> J;                  // Number of population-level covariates.
 
+  real Gamma_mean;                   // Mean of population-level means.
+  real<lower=0> Gamma_scale;         // Scale of population-level means.
+  real<lower=0> Omega_shape;         // Shape of population-level scale.
+  real tau_df;                       // Degrees of freedom of population-level scale.
+
+  matrix[A, I] X[R, S];              // Array of observation-level covariates.
+  matrix[R, J] Z;                    // Matrix of population-level covariates.
+}
+
+// Generate data according to the hierarchical multinomial logit.
+generated quantities {
+  int<lower = 1, upper = A> Y[R, S]; // Matrix of observations.
+  matrix[J, I] Gamma;                // Matrix of population-level hyperparameters.
+  corr_matrix[I] Omega;              // Population model correlation matrix hyperparameters.
+  vector[I] tau;                     // Population model vector of scale hyperparameters.
+  matrix[R, I] Beta;                 // Matrix of observation-level parameters.
+
+  // Draw parameter values and generate data.
+  for (j in 1:J) {
+    for (i in 1:I) {
+      Gamma[j, i] = normal_rng(Gamma_mean, Gamma_scale);
+    }
+  }
+  for (i in 1:I) {
+    tau[i] = chi_square_rng(tau_df);
+  }
+  Omega = lkj_corr_rng(I, Omega_shape);
+  for (r in 1:R) {
+    Beta[r,] = multi_normal_rng(Z[r,] * Gamma, quad_form_diag(Omega, tau))';
+    for (s in 1:S) {
+      Y[r, s] = categorical_logit_rng(X[r, s] * Beta[r,]');
+    }
+  }
+}
 ```
 
-We'll save this Stan script as `generate_data.stan`. Note that since `Beta` is a matrix where each row is an observation, the vector output of `multi_normal_rng` is transposed.
+We'll save this Stan script as `generate_data.stan`. While providing the covariate matrices `X` and `Z` in `data`, largely because this is more straightforward to produce in R, we are generating hyperparameter and parameters values in `generated quantities`. This includes using the LKJ hyperprior to generate the values of the correlation matrix `Omega`. However, instead of using a normal hyperprior to generate the scale vector hyperparameters `tau`, we use a Chi-square to ensure positive values. Once again, since `Beta` is a matrix where each row is a vector of respondent observation, the vector output of `multi_normal_rng` is transposed. Note that while sampling statements like `~ normal()` from the `model` block of the estimation code are vectorized, none of the RNG statements like `= normal_rng()` are, hence all of the additional for loops in the corresponding `generated quantities` block.
 
-In an R script, let's load the necessary packages, allow Stan to use as many cores as we have available, allow for Stan to save compiled code, specify assumed hyperprior values, generate data according to the hierarchical multinomial logit by calling `generate_data.stan`, and estimate our model by calling `hmnl_centered.stan`.
+In an R script, let's load the necessary packages, allow Stan to use as many cores as we have available and to save compiled code, specify assumed hyperprior values, and generate data according to the hierarchical multinomial logit by calling `generate_data.stan`.
 
-```{r centered-calibration, eval=FALSE}
+```{r generate-data-02, eval=FALSE}
+# Load packages.
+library(tidyverse)
+library(rstan)
+library(bayesplot)
+library(tidybayes)
 
+# Set Stan options.
+options(mc.cores = parallel::detectCores())
+rstan_options(auto_write = TRUE)
+
+# Specify data and hyperprior values.
+sim_values <- list(
+  R = 500,           # Number of respondents.
+  S = 10,            # Number of choice tasks.
+  A = 4,             # Number of choice alternatives.
+  L = c(3, 4, 5),    # Number of levels in each discrete attribute.
+  I = 12,            # Number of estimable attribute levels, including the brand intercept.
+  J = 3,             # Number of population-level covariates.
+
+  Gamma_mean = 0,    # Mean of population-level means.
+  Gamma_scale = 5,   # Scale of population-level means.
+  Omega_shape = 2,   # Shape of population-level scale.
+  tau_df = 2         # Degrees of freedom of population-level scale.
+)
+```
+
+Here `sim_values` is close to the `data` input for using `generate_data.stan` with one important difference. Here we've included an additional variable `L` that specifies the number of levels in each *discrete* attribute. In conjoint experiments, most of the attributes are discrete. Here we want to keep track of which of the simulated attributes are discrete, by design appearing before any continuous attributes, so we can easily impose dummy coding by dropping the first level of each attribute. The first attribute is typically the brand of the product. Rather than including an intercept, we will allow for all brand levels to be present, thus creating a "brand intercept" where everything for a given product alternative not explained by the associated attributes is included in the brand.
+
+Thus `I`, the number of *estimable* attribute levels, will be the number of brand levels plus the number of levels for the remaining attribute levels minus one for each attribute plus the number of any continuous attributes. Since `I = 12` and there are three brands, `L[1] = 3`, we have specified two continuous attributes, as follows.
+
+```{r generate-data-03, eval=FALSE}
+# Array of observation-level covariates.
+X <- array(
+  NA,
+  dim = c(sim_values$R, sim_values$S, sim_values$A, sim_values$I)
+)
+for (r in 1:sim_values$R) {
+  for (s in 1:sim_values$S) {
+    # Discrete predictors.
+    X_s <- NULL
+    for (l in 1:length(sim_values$L)) {
+      X_l <- NULL
+      for (a in 1:sim_values$A) {
+        X_a <- matrix(0, nrow = 1, ncol = sim_values$L[l])
+        X_a[1, sample(seq(1, sim_values$L[l]), 1)] <- 1
+        if (l == 1) X_l <- rbind(X_l, X_a)
+        if (l != 1) X_l <- rbind(X_l, X_a[, -1])
+      }
+      X_s <- cbind(X_s, X_l)
+    }
+    # Continuous predictors.
+    L_n <- sim_values$I - (sum(sim_values$L) - length(sim_values$L) + 1)
+    if(L_n != 0) {
+      X_s <- cbind(X_s, matrix(rnorm(sim_values$A * L_n), ncol = L_n))
+    }
+    X[r, s, , ] <- X_s
+  }
+}
+sim_values$X <- X
+
+# Matrix of population-level covariates.
+Z <- cbind(
+  rep(1, sim_values$R),
+  matrix(
+    runif(sim_values$R * (sim_values$J - 1), min = 2, max = 5),
+    nrow = sim_values$R
+  )
+)
+sim_values$Z <- Z
+
+# Generate data.
+sim_data <- stan(
+  file = here::here("Code", "generate_data.stan"),
+  data = sim_values,
+  iter = 1,
+  chains = 1,
+  seed = 42,
+  algorithm = "Fixed_param"
+)
+
+# Extract simulated data and parameters.
+sim_Y <- extract(sim_data)$Y[1,,]
+sim_Gamma <- extract(sim_data)$Gamma[1,,]
+sim_Omega <- extract(sim_data)$Omega[1,,]
+sim_tau <- extract(sim_data)$tau[1,]
+sim_Beta <- extract(sim_data)$Beta[1,,]
+```
+
+Now let's estimate our model by calling `hmnl_centered.stan`. Note that we've preemptively set `adapt_delta = 0.99` in anticipation of difficulties we've seen with [hierarchical models previously](https://www.occasionaldivergences.com/post/stan-hierarchical/).
+
+```{r centered-estimation, eval=FALSE}
+data <- list(
+  R = sim_values$R,    # Number of respondents.
+  S = sim_values$S,    # Number of choice tasks.
+  A = sim_values$A,    # Number of choice alternatives.
+  I = sim_values$I,    # Number of observation-level covariates.
+  J = sim_values$J,    # Number of population-level covariates.
+
+  Gamma_mean = 0,      # Mean of population-level means.
+  Gamma_scale = 5,     # Scale of population-level means.
+  Omega_shape = 2,     # Shape of population-level scale.
+  tau_mean = 0,        # Mean of population-level scale.
+  tau_scale = 5,       # Scale of population-level scale.
+
+  Y = sim_Y,           # Matrix of observations.
+  X = sim_values$X,    # Array of observation-level covariates.
+  Z = sim_values$Z     # Matrix of population-level covariates.
+)
+
+fit_centered <- stan(
+  file = here::here("Code", "hmnl_centered.stan"),
+  data = data,
+  control = list(adapt_delta = 0.99),
+  seed = 42
+)
 ```
 
 ```
-Chain 1:  Elapsed Time: 14936.9 seconds (Warm-up)
-Chain 1:                15389.6 seconds (Sampling)
-Chain 1:                30326.5 seconds (Total)
-Chain 1: 
+Chain 2:  Elapsed Time: 11461.2 seconds (Warm-up)
+Chain 2:                12052.3 seconds (Sampling)
+Chain 2:                23513.4 seconds (Total)
+Chain 2: 
 Warning messages:
-1: There were 50 divergent transitions after warmup. Increasing adapt_delta above 0.99 may help. See
-http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup 
-2: There were 3950 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See
+1: There were 149 divergent transitions after warmup. See
+http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup
+to find out why this is a problem and how to eliminate them. 
+2: There were 3851 transitions after warmup that exceeded the maximum treedepth. Increase max_treedepth above 10. See
 http://mc-stan.org/misc/warnings.html#maximum-treedepth-exceeded 
 3: There were 4 chains where the estimated Bayesian Fraction of Missing Information was low. See
 http://mc-stan.org/misc/warnings.html#bfmi-low 
@@ -61,16 +262,10 @@ Running the chains for more iterations may help. See
 http://mc-stan.org/misc/warnings.html#bulk-ess 
 7: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
 Running the chains for more iterations may help. See
-http://mc-stan.org/misc/warnings.html#tail-ess 
+http://mc-stan.org/misc/warnings.html#tail-ess
 ```
 
-The HMC diagnostics suggest that the chains haven't mixed (`R-hat` and Bulk Effect Sample Size `ESS`). Despite running the chains for longer, we will get warnings about the reliability of the posterior estimates. Plus a single divergent transition. And at `6000` iterations, it takes `28507.7` seconds total to run the model.
-
-This is enough to demonstrate that the centered parameterization is faulty...
-
-From previous post: Running this model gives us more than 100 divergent transitions. Recall that a divergent transition or divergence is a unique Hamiltonian Monte Carlo diagnostic that identifies problems navigating the posterior distribution. These difficulties with posterior geometry are true regardless of the sampler, but Hamiltonian Monte Carlo makes the issue transparent.
-
-We have already set `adapt_delta = 0.99`, which is the smaller step size we set previously. In order to produce a posterior geometry that can be navigated, we need to reparameterize our model.
+Estimating the model gives us more than 100 divergent transitions. Recall that a divergent transition or divergence is a unique Hamiltonian Monte Carlo diagnostic that identifies problems navigating the posterior distribution. These difficulties with posterior geometry are true regardless of the sampler, but Hamiltonian Monte Carlo makes the issue transparent. In order to produce a posterior geometry that can be navigated, we need to reparameterize our model.
 
 ## Non-centered parameterization
 
@@ -82,7 +277,7 @@ Reference previous post in explaining the non-centered parameterization, now for
 
 Run the model...
 
-```{r noncentered-calibration, eval=FALSE}
+```{r noncentered-estimation, eval=FALSE}
 
 ```
 
