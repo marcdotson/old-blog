@@ -86,7 +86,6 @@ write_rds(
 )
 
 # Load simulation values and data.
-# sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "old_sim_data.rds"))
 sim_values <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_values.rds"))
 sim_data <- read_rds(here::here("content", "post", "choice-models", "Data", "sim_data.rds"))
 
@@ -183,23 +182,22 @@ ggsave(
 )
 
 # Non-Centered Parameterization -------------------------------------------
-# Specify the data for calibration in a list.
 data <- list(
-  N = sim_values$R,    # Number of respondents.
+  R = sim_values$R,    # Number of respondents.
   S = sim_values$S,    # Number of choice tasks.
-  P = sim_values$A,    # Number of choice alternatives.
-  L = sim_values$I,    # Number of observation-level covariates.
-  C = sim_values$J,    # Number of population-level covariates.
+  A = sim_values$A,    # Number of choice alternatives.
+  I = sim_values$I,    # Number of observation-level covariates.
+  J = sim_values$J,    # Number of population-level covariates.
 
-  Theta_mean = 0,      # Mean of coefficients for the heterogeneity model.
-  Theta_scale = 1,     # Scale of coefficients for the heterogeneity model.
-  alpha_mean = 0,      # Mean of scale for the heterogeneity model.
-  alpha_scale = 10,    # Scale of scale for the heterogeneity model.
-  lkj_corr_shape = 5,  # Shape of correlation matrix for the heterogeneity model.
+  Gamma_mean = 0,      # Mean of population-level means.
+  Gamma_scale = 5,     # Scale of population-level means.
+  Omega_shape = 2,     # Shape of population-level scale.
+  tau_mean = 0,        # Mean of population-level scale.
+  tau_scale = 5,       # Scale of population-level scale.
 
-  Y = sim_Y,           # Matrix of observed choices.
-  X = sim_values$X,    # Array of experimental designs per choice task.
-  Z = sim_values$Z     # Matrix of respondent-level covariates.
+  Y = sim_Y,           # Matrix of observations.
+  X = sim_values$X,    # Array of observation-level covariates.
+  Z = sim_values$Z     # Matrix of population-level covariates.
 )
 
 # Calibrate the model.
