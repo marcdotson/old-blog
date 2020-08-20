@@ -72,16 +72,16 @@ model {
   // }
 }
 
-// // Quantities conditioned on parameter draws.
-// generated quantities {
-//   // Log likelihood to estimate loo.
-//   matrix[R, S] log_lik;
-//   for (r in 1:R) {
-//     for (s in 1:S) {
-//       log_lik[r, s] = categorical_logit_lpmf(Y[r, s] | X[r, s] * Beta[r,]');
-//     }
-//   }
-// }
+// Quantities conditioned on parameter draws.
+generated quantities {
+  // Log likelihood to estimate loo.
+  matrix[R, S] log_lik;
+  for (r in 1:R) {
+    for (s in 1:S) {
+      log_lik[r, s] = categorical_logit_lpmf(Y[r, s] | X[r, s] * Beta[r,]');
+    }
+  }
+}
 
 // generated quantities {
 //   // Yp is predicted choices for new data.

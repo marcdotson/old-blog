@@ -45,6 +45,7 @@ for (r in 1:sim_values$R) {
       }
       X_s <- cbind(X_s, X_l)
     }
+
     # Continuous predictors.
     L_n <- sim_values$I - (sum(sim_values$L) - length(sim_values$L) + 1)
     if(L_n != 0) {
@@ -118,8 +119,8 @@ data <- list(
 fit_centered <- stan(
   file = here::here("content", "post", "choice-models", "Code", "hmnl_centered.stan"),
   data = data,
-  # iter = 6000,
-  # thin = 3,
+  iter = 4000,
+  thin = 2,
   control = list(adapt_delta = 0.99),
   seed = 42
 )
@@ -127,13 +128,13 @@ fit_centered <- stan(
 # Save model output.
 write_rds(
   fit_centered,
-  here::here("content", "post", "choice-models", "Output", "hmnl-centered_test.rds")
+  here::here("content", "post", "choice-models", "Output", "fit_centered.rds")
 )
 
-# # Load model output.
-# fit_centered <- read_rds(
-#   here::here("content", "post", "choice-models", "Output", "hmnl-centered_fit.rds")
-# )
+# Load model output.
+fit_centered <- read_rds(
+  here::here("content", "post", "choice-models", "Output", "fit_centered.rds")
+)
 
 # Model fit.
 loo(fit_centered)
@@ -201,54 +202,27 @@ data <- list(
 )
 
 # Calibrate the model.
-fit <- stan(
+fit_noncentered <- stan(
   file = here::here("content", "post", "choice-models", "Code", "hmnl_noncentered.stan"),
   data = data,
+  iter = 4000,
+  thin = 2,
   seed = 42
 )
 
 # Save model output.
 write_rds(
-  fit,
-  here::here("content", "post", "choice-models", "Output", "hmnl-noncentered_test.rds")
+  fit_noncentered,
+  here::here("content", "post", "choice-models", "Output", "fit_noncentered.rds")
 )
 
-# Conjugate Parameterization ----------------------------------------------
-# Specify the data for calibration in a list.
-Data = list(
-  N = nrow(sim_data$Y),    # Number of respondents.
-  S = ncol(sim_data$Y),    # Number of choice tasks per respondent.
-  P = dim(sim_data$X)[3],  # Number of product alternatives per choice task.
-  L = dim(sim_data$X)[4],  # Number of (estimable) attribute levels.
-  C = ncol(sim_data$Z),    # Number of respondent-level covariates.
-
-  y = sim_data$Y_list,     # List of choices.
-  X = sim_data$X_list,     # List of design matrices.
-  Z = sim_data$Z           # Covariates for the upper-level model.
+# Load model output.
+fit_noncentered <- read_rds(
+  here::here("content", "post", "choice-models", "Output", "fit_noncentered.rds")
 )
 
-# Specify the prior for calibration in a list.
-Prior = list(
-  gammabar = matrix(rep(0, Data$C * Data$L), ncol = Data$L), # Means for normal prior on Gamma.
-  Agamma = 0.01 * diag(Data$C),                              # Precision matrix for normal prior on Gamma.
-  nu = Data$L + 3,                                           # DF for IW prior on Vbeta.
-  V = (Data$L + 3) * diag(Data$L)                            # Location for IW prior on Vbeta.
-)
-
-# Specify the MCMC parameters in a list.
-Mcmc = list(
-  R = 20000,               # Number of iterations in the Markov chain.
-  keep = 20,               # Thinning parameter.
-  step = .08,              # RW step (scaling factor) for the beta draws.
-  cont_ind = 0             # Indicates a run continuation.
-)
-
-# Calibrate the model.
-source(here::here("content", "post", "choice-models", "Code", "hmnl_conjugate.R"))
-fit <- hier_mnl(Data, Prior, Mcmc)
-
-# Save model output.
-write_rds(fit, here::here("content", "post", "choice-models", "Output", "hmnl-conjugate_01.rds"))
+# Model fit.
+loo(fit_noncentered)
 
 # Model Fit ---------------------------------------------------------------
 # Load model output.

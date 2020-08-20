@@ -269,7 +269,7 @@ Estimating the model gives us more than 100 divergent transitions. Recall that a
 
 ## Non-centered parameterization
 
-Reference previous post in explaining the non-centered parameterization, now for HMNL.
+Reference previous post in explaining the non-centered parameterization, now for HMNL. Is there actually a difference? The current parameterization has a Cholesky decomposition and doesn't include the population model at all (so implicitly a uniform instead of a standard normal prior).
 
 ```{stan hmnl-noncentered, output.var="hmnl_noncentered", eval=FALSE}
 
@@ -297,16 +297,14 @@ Parameter recovery...
 
 <!-- ![](Figures/marginals-gamma.png){width=1000px} -->
 
-## Comparison
-
-- Okay, but *how* wrong is it? Use Adam's referenced paper.
-- Computation time.
-- Model fit.
-- Comparison across *many* simulated datasets.
-
 ## Final thoughts
 
-...
+- Okay, but *how* wrong is it? Under what situations? Use Adam's referenced paper.
+- Need to consider the actual decision and the cost of inference being off.
+- Beyond divergences, just mixing issues suggest more time, but still never saw it.
+- Computation time.
+- Model fit.
+- Could use, more formally, a return to a choice model as part of a nmore principled workflow.
 
 -----
 
