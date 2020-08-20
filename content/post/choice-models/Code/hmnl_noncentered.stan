@@ -23,10 +23,6 @@ parameters {
   corr_matrix[I] Omega;              // Population model correlation matrix hyperparameters.
   vector<lower = 0>[I] tau;          // Population model vector of scale hyperparameters.
   matrix[R, I] Delta;                // Matrix of non-centered observation-level parameters.
-
-  // cholesky_factor_corr[I] Omega;           // Cholesky factorization for heterogeneity covariance.
-  // vector<lower=0, upper=pi()/2>[I] tau_unif; // Initialized parameter value for a Cauchy draw.
-  // matrix[I, R] alpha;                        // Standard deviations for heterogeneity covariance.
 }
 
 // Deterministic transformation.
@@ -38,13 +34,6 @@ transformed parameters {
   for (r in 1:R) {
     Beta[r,] = Z[r,] * Gamma + Delta[r,] * quad_form_diag(Omega, tau);
   }
-
-  // matrix[R, I] Beta;                              // Matrix of Beta coefficients.
-  // vector<lower=0>[I] tau;                         // Scale for heterogeneity covariance.
-  // for (l in 1:I) tau[l] = 2.5 * tan(tau_unif[l]); // Inverse probability Cauchy draw.
-  //
-  // // Draw of Beta following non-centered parameterization.
-  // Beta = Gamma * Z + (diag_pre_multiply(tau,Omega) * alpha)';
 }
 
 // Hierarchical multinomial logit model.
@@ -61,20 +50,11 @@ model {
       Y[r, s] ~ categorical_logit(X[r, s] * Beta[r,]');
     }
   }
-
-  // to_vector(alpha) ~ normal(tau_mean, tau_scale);
-  // L_Omega ~ lkj_corr_cholesky(Omega_shape);
-  // // Hierarchical multinomial logit.
-  // for (n in 1:R) {
-  //   for (s in 1:S) {
-  //     Y[n, s] ~ categorical_logit(X[n, s] * Beta[n,]');
-  //   }
-  // }
 }
 
-// Quantities conditioned on parameter draws.
+// Generated quantities conditioned on parameter draws.
 generated quantities {
-  // Log likelihood to estimate loo.
+  // Compute log likelihood for model fit.
   matrix[R, S] log_lik;
   for (r in 1:R) {
     for (s in 1:S) {
@@ -82,19 +62,3 @@ generated quantities {
     }
   }
 }
-
-// generated quantities {
-//   // Yp is predicted choices for new data.
-//   real Y_ppc[R, S];
-//   vector[R*S] log_lik;
-//   {
-//     matrix[R, S] temp_log_lik;
-//     for (r in 1:R) {
-//       for (t in 1:S) {
-//         Y_ppc[r, t] = categorical_logit_rng(X[r, t] * Beta[r]');
-//         temp_log_lik[r, t] = categorical_logit_lpmf(Y[r, t] | X[r, t] * Beta[r]');
-//       }
-//     }
-//     log_lik = to_vector(temp_log_lik);
-//   }
-// }

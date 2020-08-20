@@ -25,12 +25,6 @@ parameters {
   matrix[R, I] Beta;                 // Matrix of observation-level parameters.
 }
 
-// // Deterministic transformation.
-// transformed parameters {
-//   // Covariance matrix hyperparameters for the population model.
-//   cov_matrix[I] Sigma = quad_form_diag(Omega, tau);
-// }
-
 // Hierarchical multinomial logit.
 model {
   // Hyperpriors.
@@ -40,7 +34,6 @@ model {
 
   // Population model and likelihood.
   for (r in 1:R) {
-    // Beta[r,] ~ multi_normal(Z[r,] * Gamma, Sigma);
     Beta[r,] ~ multi_normal(Z[r,] * Gamma, quad_form_diag(Omega, tau));
     for (s in 1:S) {
       Y[r, s] ~ categorical_logit(X[r, s] * Beta[r,]');
@@ -48,13 +41,13 @@ model {
   }
 }
 
-// // Quantities conditioned on parameter draws.
-// generated quantities {
-//   // Log likelihood to estimate loo.
-//   matrix[R, S] log_lik;
-//   for (r in 1:R) {
-//     for (s in 1:S) {
-//       log_lik[r, s] = categorical_logit_lpmf(Y[r, s] | X[r, s] * Beta[r,]');
-//     }
-//   }
-// }
+// Generated quantities conditioned on parameter draws.
+generated quantities {
+  // Compute log likelihood for model fit.
+  matrix[R, S] log_lik;
+  for (r in 1:R) {
+    for (s in 1:S) {
+      log_lik[r, s] = categorical_logit_lpmf(Y[r, s] | X[r, s] * Beta[r,]');
+    }
+  }
+}
