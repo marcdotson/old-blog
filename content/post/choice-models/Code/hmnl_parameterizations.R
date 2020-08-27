@@ -121,7 +121,7 @@ fit_centered <- stan(
   data = data,
   iter = 4000,
   thin = 2,
-  control = list(adapt_delta = 0.99),
+  # control = list(adapt_delta = 0.99),
   seed = 42
 )
 
@@ -134,52 +134,6 @@ write_rds(
 # Load model output.
 fit_centered <- read_rds(
   here::here("content", "post", "choice-models", "Output", "fit_centered.rds")
-)
-
-# Model fit.
-loo(fit_centered)
-
-# Check trace plots.
-fit_centered %>%
-  extract(
-    inc_warmup = TRUE,
-    permuted = FALSE
-  ) %>%
-  mcmc_trace(
-    regex_pars = "Theta",
-    n_warmup = 1000,
-    facet_args = list(nrow = 2, labeller = label_parsed)
-  )
-
-ggsave(
-  "mcmc_trace_centered_01.png",
-  path = here::here("content", "post", "choice-models", "Figures"),
-  width = 12, height = 6, units = "in"
-)
-
-# Recover parameter values.
-Theta <- tibble(i = as.factor(1:ncol(sim_data$Theta)), Theta = t(sim_data$Theta))
-
-draws_centered <- fit_centered %>%
-  spread_draws(Theta[i, j]) %>%
-  select(.chain, .iteration, .draw, i, j, Theta) %>%
-  ungroup()
-
-draws_centered %>%
-  ggplot(aes(x = Theta)) +
-  geom_halfeyeh(.width = c(.95, .95)) +
-  facet_wrap(
-    ~ as.factor(i),
-    nrow = 3,
-    ncol = 4,
-    scales = "free_x"
-  ) +
-  geom_vline(aes(xintercept = Theta), Theta, color = "red")
-
-ggsave(
-  "mcmc_marginals_centered_01.png",
-  path = here::here("Figures"),
-  width = 12, height = 6, units = "in"
 )
 
 # Non-Centered Parameterization -------------------------------------------
@@ -221,108 +175,306 @@ fit_noncentered <- read_rds(
   here::here("content", "post", "choice-models", "Output", "fit_noncentered.rds")
 )
 
-# Model fit.
-loo(fit_noncentered)
+# Check population model trace plots.
+gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
+# omega_string <- str_c("Omega[", 1:data$I, ",", 1, "]")
+# tau_string <- str_c("tau[", 1:data$I, "]")
+for (i in 2:data$I) {
+  gamma_temp <- str_c("Gamma[", 1:data$J, ",", i, "]")
+  gamma_string <- c(gamma_string, gamma_temp)
+  # omega_temp <- str_c("Omega[", 1:data$I, ",", i, "]")
+  # omega_string <- c(omega_string, omega_temp)
+}
 
-# Model Fit ---------------------------------------------------------------
-# Load model output.
-fit_noncentered <- read_rds(here::here("Output", "hmnl-noncentered_fit.RDS"))
-fit_conjugate <- read_rds(here::here("Output", "hmnl-conjugate-20k_fit.RDS"))
-colnames(fit_conjugate$Gammadraw) <-
-  c(
-    "Theta[1,1]", "Theta[2,1]", "Theta[3,1]", "Theta[4,1]", "Theta[5,1]", "Theta[6,1]",
-    "Theta[7,1]", "Theta[8,1]", "Theta[9,1]", "Theta[10,1]", "Theta[11,1]", "Theta[12,1]"
-  )
-
-
-# Check trace plots.
+# Gamma.
 fit_noncentered %>%
-  extract(
-    inc_warmup = TRUE,
-    permuted = FALSE
-  ) %>%
   mcmc_trace(
-    regex_pars = "Theta",
-    n_warmup = 1000,
-    facet_args = list(nrow = 2, labeller = label_parsed)
-  )
-
-ggsave(
-  "mcmc_trace_noncentered.png",
-  path = here::here("Figures"),
-  width = 12, height = 6, units = "in"
-)
-
-fit_conjugate$Gammadraw %>%
-  mcmc_trace(
+    pars = gamma_string,
     n_warmup = 500,
-    facet_args = list(nrow = 2, labeller = label_parsed)
+    facet_args = list(
+      nrow = ceiling(length(gamma_string) / 4),
+      ncol = 4,
+      labeller = label_parsed
+    )
   )
 
 ggsave(
-  "mcmc_trace_conjugate.png",
-  path = here::here("Figures"),
-  width = 12, height = 6, units = "in"
+  "mcmc_trace-gamma.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 12, height = 20, units = "in"
 )
 
-# Recover parameter values.
-Theta <- tibble(i = as.factor(1:ncol(sim_data$Theta)), Theta = t(sim_data$Theta))
+# # Omega.
+# fit_noncentered %>%
+#   mcmc_trace(
+#     pars = omega_string,
+#     n_warmup = 500,
+#     facet_args = list(
+#       nrow = ceiling(length(omega_string) / 4),
+#       ncol = 4,
+#       labeller = label_parsed
+#     )
+#   )
+#
+# ggsave(
+#   "mcmc_trace-omega.png",
+#   path = here::here("content", "post", "choice-models", "Figures"),
+#   width = 40, height = 40, units = "in"
+# )
+#
+# # tau.
+# fit_noncentered %>%
+#   mcmc_trace(
+#     pars = tau_string,
+#     n_warmup = 500,
+#     facet_args = list(
+#       nrow = ceiling(length(tau_string) / 4),
+#       ncol = 4,
+#       labeller = label_parsed
+#     )
+#   )
+#
+# ggsave(
+#   "mcmc_trace-tau.png",
+#   path = here::here("content", "post", "choice-models", "Figures"),
+#   width = 10, height = 5, units = "in"
+# )
+#
+# # Check observation model trace plots.
+# beta_string <- str_c("Beta[", 1:data$R, ",", 1, "]")
+# for (i in 2:data$I) {
+#   beta_temp <- str_c("Beta[", 1:data$R, ",", i, "]")
+#   beta_string <- c(beta_string, beta_temp)
+# }
+#
+# # Beta.
+# fit_noncentered %>%
+#   mcmc_trace(
+#     pars = beta_string,
+#     n_warmup = 500,
+#     facet_args = list(
+#       nrow = ceiling(length(beta_string) / 4),
+#       ncol = 4,
+#       labeller = label_parsed
+#     )
+#   )
+#
+# ggsave(
+#   "mcmc_trace-beta.png",
+#   path = here::here("content", "post", "choice-models", "Figures"),
+#   width = 12, height = 40, units = "in"
+# )
 
-draws_centered <- fit_centered %>%
-  spread_draws(Theta[i, j]) %>%
-  mutate(model = "centered") %>%
-  select(model, .chain, .iteration, .draw, i, j, Theta) %>%
-  ungroup()
+# Recover Gamma values.
+gamma_values <- tibble(
+  j = sort(rep(1:(data$J), data$I)),
+  i = rep(1:(data$I), data$J),
+  .variable = str_c("Gamma", "_", j, "_", i),
+  values = as.vector(t(matrix(sim_Gamma, ncol = data$I)))
+) %>%
+  select(.variable, values)
 
-draws_noncentered <- fit_noncentered %>%
-  spread_draws(Theta[i, j]) %>%
-  mutate(model = "noncentered") %>%
-  select(model, .chain, .iteration, .draw, i, j, Theta) %>%
-  ungroup()
-
-draws_conjugate <- as_tibble(fit_conjugate$Gammadraw) %>%
-  mutate(
-    .draw = row_number(),
-    .iteration = row_number()
-  ) %>%
-  gather(key = i, value = Theta, -c(.draw, .iteration)) %>%
-  separate(col = i, into = c("temp1", "i"), sep = "\\[") %>%
-  separate(col = i, into = c("i", "j"), sep = ",") %>%
-  separate(col = j, into = c("j", "temp2"), sep = "\\]") %>%
-  mutate(
-    model = "conjugate",
-    .chain = as.integer(1),
-    i = as.integer(i),
-    j = as.integer(j)
-  ) %>%
-  select(model, .chain, .iteration, .draw, i, j, Theta) %>%
-  arrange(.iteration) %>%
-  filter(.iteration > 500)
-
-draws <- draws_centered %>%
-  bind_rows(draws_noncentered) %>%
-  bind_rows(draws_conjugate)
-
-draws %>%
-  mutate(
-    model = factor(model),
-    model = fct_relevel(
-      model, "noncentered", "centered", "conjugate"
-    )
-  ) %>%
-  ggplot(aes(x = Theta, y = model)) +
-  geom_halfeyeh(.width = c(.95, .95)) +
+fit_noncentered %>%
+  gather_draws(Gamma[j, i]) %>%
+  unite(.variable, .variable, j, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), gamma_values, color = "red") +
   facet_wrap(
-    ~ as.factor(i),
-    nrow = 3,
-    ncol = 4,
-    scales = "free_x"
-  ) +
-  geom_vline(aes(xintercept = Theta), Theta, color = "red")
+    ~ .variable,
+    nrow = data$J,
+    ncol = data$I,
+    scales = "free"
+  )
 
 ggsave(
-  "mcmc_marginal_posteriors.png",
-  path = here::here("Figures"),
-  width = 12, height = 6, units = "in"
+  "marginals-gamma.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 25, height = 12, units = "in"
 )
+
+# # Recover Omega values.
+# omega_values <- tibble(
+#   j = sort(rep(1:(data$I), data$I)),
+#   i = rep(1:(data$I), data$I),
+#   .variable = str_c("Omega", "_", j, "_", i),
+#   values = as.vector(t(matrix(sim_Omega, ncol = data$I)))
+# ) %>%
+#   select(.variable, values)
+#
+# fit_noncentered %>%
+#   gather_draws(Omega[j, i]) %>%
+#   unite(.variable, .variable, j, i) %>%
+#   ggplot(aes(x = .value, y = .variable)) +
+#   geom_halfeyeh(.width = .95) +
+#   geom_vline(aes(xintercept = values), omega_values, color = "red") +
+#   facet_wrap(
+#     ~ .variable,
+#     nrow = data$I,
+#     ncol = data$I,
+#     scales = "free"
+#   )
+#
+# ggsave(
+#   "marginals-omega.png",
+#   path = here::here("content", "post", "choice-models", "Figures"),
+#   width = 25, height = 12, units = "in"
+# )
+#
+# # Recover tau values.
+# tau_values <- tibble(
+#   i = 1:(data$I),
+#   .variable = str_c("tau", "_", i),
+#   values = as.vector(sim_tau)
+# ) %>%
+#   select(.variable, values)
+#
+# fit_noncentered %>%
+#   gather_draws(tau[i]) %>%
+#   unite(.variable, .variable, i) %>%
+#   ggplot(aes(x = .value, y = .variable)) +
+#   geom_halfeyeh(.width = .95) +
+#   geom_vline(aes(xintercept = values), tau_values, color = "red") +
+#   facet_wrap(
+#     ~ .variable,
+#     nrow = ceiling(data$I / 4),
+#     ncol = 4,
+#     scales = "free"
+#   )
+#
+# ggsave(
+#   "marginals-tau.png",
+#   path = here::here("content", "post", "choice-models", "Figures"),
+#   width = 25, height = 12, units = "in"
+# )
+#
+# # Recover Beta values.
+# beta_values <- tibble(
+#   n = sort(rep(1:(data$R), data$I)),
+#   i = rep(1:(data$I), data$R),
+#   .variable = str_c("Beta", "_", n, "_", i),
+#   values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
+# ) %>%
+#   select(.variable, values)
+#
+# fit_noncentered %>%
+#   gather_draws(Beta[n, i]) %>%
+#   unite(.variable, .variable, n, i) %>%
+#   ggplot(aes(x = .value, y = .variable)) +
+#   geom_halfeyeh(.width = .95) +
+#   geom_vline(aes(xintercept = values), beta_values, color = "red") +
+#   facet_wrap(
+#     ~ .variable,
+#     nrow = data$K,
+#     ncol = data$I,
+#     scales = "free"
+#   )
+#
+# ggsave(
+#   "marginals-beta.png",
+#   path = here::here("content", "post", "choice-models", "Figures"),
+#   width = 25, height = 12, units = "in"
+# )
+
+# Miscellaneous -----------------------------------------------------------
+# # Load model output.
+# fit_noncentered <- read_rds(here::here("Output", "hmnl-noncentered_fit.RDS"))
+# fit_conjugate <- read_rds(here::here("Output", "hmnl-conjugate-20k_fit.RDS"))
+# colnames(fit_conjugate$Gammadraw) <-
+#   c(
+#     "Theta[1,1]", "Theta[2,1]", "Theta[3,1]", "Theta[4,1]", "Theta[5,1]", "Theta[6,1]",
+#     "Theta[7,1]", "Theta[8,1]", "Theta[9,1]", "Theta[10,1]", "Theta[11,1]", "Theta[12,1]"
+#   )
+#
+#
+# # Check trace plots.
+# fit_noncentered %>%
+#   extract(
+#     inc_warmup = TRUE,
+#     permuted = FALSE
+#   ) %>%
+#   mcmc_trace(
+#     regex_pars = "Theta",
+#     n_warmup = 1000,
+#     facet_args = list(nrow = 2, labeller = label_parsed)
+#   )
+#
+# ggsave(
+#   "mcmc_trace_noncentered.png",
+#   path = here::here("Figures"),
+#   width = 12, height = 6, units = "in"
+# )
+#
+# fit_conjugate$Gammadraw %>%
+#   mcmc_trace(
+#     n_warmup = 500,
+#     facet_args = list(nrow = 2, labeller = label_parsed)
+#   )
+#
+# ggsave(
+#   "mcmc_trace_conjugate.png",
+#   path = here::here("Figures"),
+#   width = 12, height = 6, units = "in"
+# )
+#
+# # Recover parameter values.
+# Theta <- tibble(i = as.factor(1:ncol(sim_data$Theta)), Theta = t(sim_data$Theta))
+#
+# draws_centered <- fit_centered %>%
+#   spread_draws(Theta[i, j]) %>%
+#   mutate(model = "centered") %>%
+#   select(model, .chain, .iteration, .draw, i, j, Theta) %>%
+#   ungroup()
+#
+# draws_noncentered <- fit_noncentered %>%
+#   spread_draws(Theta[i, j]) %>%
+#   mutate(model = "noncentered") %>%
+#   select(model, .chain, .iteration, .draw, i, j, Theta) %>%
+#   ungroup()
+#
+# draws_conjugate <- as_tibble(fit_conjugate$Gammadraw) %>%
+#   mutate(
+#     .draw = row_number(),
+#     .iteration = row_number()
+#   ) %>%
+#   gather(key = i, value = Theta, -c(.draw, .iteration)) %>%
+#   separate(col = i, into = c("temp1", "i"), sep = "\\[") %>%
+#   separate(col = i, into = c("i", "j"), sep = ",") %>%
+#   separate(col = j, into = c("j", "temp2"), sep = "\\]") %>%
+#   mutate(
+#     model = "conjugate",
+#     .chain = as.integer(1),
+#     i = as.integer(i),
+#     j = as.integer(j)
+#   ) %>%
+#   select(model, .chain, .iteration, .draw, i, j, Theta) %>%
+#   arrange(.iteration) %>%
+#   filter(.iteration > 500)
+#
+# draws <- draws_centered %>%
+#   bind_rows(draws_noncentered) %>%
+#   bind_rows(draws_conjugate)
+#
+# draws %>%
+#   mutate(
+#     model = factor(model),
+#     model = fct_relevel(
+#       model, "noncentered", "centered", "conjugate"
+#     )
+#   ) %>%
+#   ggplot(aes(x = Theta, y = model)) +
+#   geom_halfeyeh(.width = c(.95, .95)) +
+#   facet_wrap(
+#     ~ as.factor(i),
+#     nrow = 3,
+#     ncol = 4,
+#     scales = "free_x"
+#   ) +
+#   geom_vline(aes(xintercept = Theta), Theta, color = "red")
+#
+# ggsave(
+#   "mcmc_marginal_posteriors.png",
+#   path = here::here("Figures"),
+#   width = 12, height = 6, units = "in"
+# )
 
