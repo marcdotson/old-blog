@@ -1,7 +1,7 @@
 ---
 title: "Comparing choice model parameterizations"
 author: "Marc Dotson"
-date: "2020-08-27"
+date: "2020-09-02"
 slug: choice-models
 ---
 
@@ -58,8 +58,8 @@ model {
 }</code></pre>
 <p>We’ll save this Stan script as <code>hmnl_centered.stan</code>. In the <code>data</code> block, we have <code>R</code> respondents that each go through <code>S</code> choice tasks where each choice task has <code>A</code> choice alternatives to choose from. Thus there are <code>R * S</code> total observations where each observation takes on a value from <code>1</code> to <code>A</code>, the chosen alternative. At the observation level, the choice alternatives are defined by <code>I</code> covariates. These covariates are the attributes of the choice alternatives under consideration. At the population or group level, the respondents are defined by <code>J</code> covariates. These covariates are used to explain preference heterogeneity across respondents in the population and improve our ability to predict preferences.</p>
 <p>The <code>data</code> block also includes the hyperprior values. These define our hyperpriors on the hyperparameters in the population-level model and can be more easily evaluated when specified as part of the <code>data</code> block rather than hard-coded in the <code>model</code> block. Finally, the observations are stored as a matrix <code>Y</code> where each of the <code>R</code> respondents’ <code>S</code> choices are stored as a row while the observation-level covariates <code>X</code> is an <code>R x S</code> array where each element is the <code>A x I</code> matrix of covariates specific to that respondent and choice task.</p>
-<p>The <code>parameters</code> block includes the population-level hyperparameters <code>Gamma</code> or the coefficients associated with the population level covariates <code>Z</code>, the population-level hyperparameters <code>Omega</code> and <code>tau</code> which are the accompanying correlation matrix and scale of the population-level model, and the observation-level parameters <code>Beta</code>. Again, because a conjoint experiment produces repeat observations at the respondent level, we get a set of these <code>Beta</code> parameters for each respondent. These parameters are often referred to as part-worth utilities or preference parameters in the conjoint literature as they describe the preferences each respondent has for each of the attributes that define the choice alternatives. These hyperparameters are thus estimates of population preference heterogeneity.</p>
-<p>The <code>model</code> block includes the specification of hyperpriors, using the hyperprior values specified in the <code>data</code> block, and the hierarchy of models: the population model on the <code>Beta</code> parameters and the observation model or likelihood on the observed choices. We use the helper function <code>to_vector()</code> to easily use a <code>normal()</code> hyperprior on the <code>Gamma</code> matrix. The reason for <a href="https://www.occasionaldivergences.com/post/non-centered/">decomposing the covariance matrix of the multivariate normal population model</a> into a correlation matrix and a scale vector becomes clear as we can use an LKJ hyperprior on the correlation matrix <code>Omega</code> and a normal hyperprior on the scale vector <code>tau</code>. We then reform the covariance matrix using <code>quad_form_diag()</code> as part of the multivariate population model. Note that <code>categorical_logit()</code> is the multinomial logit likelihood and that it must be used within nested for loops since it isn’t vectorized. Also note that since <code>Beta</code> is a matrix where each row is a vector of respondent-specific observations, the vector output of <code>multi_normal()</code> is transposed as part of the likelihood.</p>
+<p>The <code>parameters</code> block includes the population-level hyperparameters <code>Gamma</code> or the coefficients associated with the population-level covariates <code>Z</code>, the population-level hyperparameters <code>Omega</code> and <code>tau</code> which are the accompanying correlation matrix and scale of the population-level model, and the observation-level parameters <code>Beta</code>. Again, because a conjoint experiment produces repeat observations at the respondent level, we get a set of these <code>Beta</code> parameters for each respondent. These parameters are often referred to as part-worth utilities or preference parameters in the conjoint literature as they describe the preferences each respondent has for each of the attributes that define the choice alternatives. Thus the hyperparameters are estimates of population preference heterogeneity.</p>
+<p>The <code>model</code> block includes the specification of hyperpriors, using the hyperprior values specified in the <code>data</code> block, and the hierarchy of models: the population model on the <code>Beta</code> parameters and the observation model or likelihood on the observed choices <code>Y</code>. We use the helper function <code>to_vector()</code> to easily use a <code>normal()</code> hyperprior on the <code>Gamma</code> matrix. By <a href="https://www.occasionaldivergences.com/post/non-centered/">decomposing the covariance matrix of the multivariate normal population model</a> into a correlation matrix and a scale vector means we can use an LKJ hyperprior on the correlation matrix <code>Omega</code> and a normal hyperprior on the scale vector <code>tau</code>. We then reform the covariance matrix using <code>quad_form_diag()</code> as part of the multivariate population model. Note that <code>categorical_logit()</code> is the multinomial logit likelihood and that it must be used within nested for loops since it isn’t vectorized. Also note that since <code>Beta</code> is a matrix where each row is a vector of respondent-specific parameters, the vector output of <code>multi_normal()</code> is transposed as part of the likelihood.</p>
 <p>Since Bayesian models are generative, we can translate this Stan script into <code>data</code> and <code>generated quantities</code> blocks and use Stan to generate data for us.</p>
 <pre class="stan"><code>// Index values, hyperprior values, and covariates.
 data {
@@ -103,7 +103,7 @@ generated quantities {
     }
   }
 }</code></pre>
-<p>We’ll save this Stan script as <code>generate_data.stan</code>. While providing the covariate matrices <code>X</code> and <code>Z</code> in <code>data</code>, largely because this is more straightforward to produce in R, we are generating hyperparameter and parameters values in <code>generated quantities</code>. This includes using the LKJ hyperprior to generate the values of the correlation matrix <code>Omega</code>. However, instead of using a normal hyperprior to generate the scale vector hyperparameters <code>tau</code>, we use a Chi-square to ensure positive values. Once again, since <code>Beta</code> is a matrix where each row is a vector of respondent observation, the vector output of <code>multi_normal_rng</code> is transposed. Note that while sampling statements like <code>~ normal()</code> from the <code>model</code> block of the estimation code are vectorized, none of the corresponding RNG statements like <code>= normal_rng()</code> are, hence all of the additional for loops in the corresponding <code>generated quantities</code> block in <code>generate_data.stan</code>.</p>
+<p>We’ll save this Stan script as <code>generate_data.stan</code>. While providing the covariate matrices <code>X</code> and <code>Z</code> in <code>data</code>, largely because this is more straightforward to generate in R, we are generating hyperparameter and parameters values in <code>generated quantities</code>. This includes using the LKJ hyperprior to generate the values of the correlation matrix <code>Omega</code>. However, instead of using a normal hyperprior to generate the scale vector hyperparameters <code>tau</code>, we use a Chi-square to ensure positive values. Once again, since <code>Beta</code> is a matrix where each row is a vector of respondent parameters, the vector output of <code>multi_normal_rng()</code> is transposed. Note that while sampling statements like <code>~ normal()</code> from the <code>model</code> block of the estimation code are vectorized, none of the corresponding RNG statements like <code>= normal_rng()</code> are, hence all of the additional for loops in the corresponding <code>generated quantities</code> block in <code>generate_data.stan</code>.</p>
 <p>In an R script, let’s load the necessary packages, allow Stan to use as many cores as we have available and save compiled code, and specify the structure of the data and the hyperprior values.</p>
 <pre class="r"><code># Load packages.
 library(tidyverse)
@@ -242,12 +242,12 @@ http://mc-stan.org/misc/warnings.html#bulk-ess
 7: Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
 Running the chains for more iterations may help. See
 http://mc-stan.org/misc/warnings.html#tail-ess </code></pre>
-<p>Estimating the model gives us more than 300 divergent transitions. Recall that a divergent transition or divergence is a unique HMC diagnostic that identifies problems navigating the posterior distribution. These difficulties with posterior geometry are true regardless of the sampler, but HMC makes the issue more transparent. We continue to see divergences even if we set <code>adapt_delta = 0.99</code> as we’ve done with <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">hierarchical models previously</a>. There are also warnings suggesting we run the chains for longer. Even up to <code>iter = 10000</code>, five times the default 2000 iterations, we see the same problems.</p>
+<p>Estimating the model gives us more than 300 divergent transitions. Recall that a divergent transition or divergence is a unique HMC diagnostic that identifies problems navigating the posterior distribution. These <a href="https://arxiv.org/abs/1312.0906">difficulties with posterior geometry</a> are true regardless of the sampler, but HMC makes the issue more transparent. We continue to see divergences even if we set <code>adapt_delta = 0.99</code> as we’ve done with <a href="https://www.occasionaldivergences.com/post/stan-hierarchical/">hierarchical models previously</a>. There are also warnings suggesting we run the chains for longer. Even up to <code>iter = 10000</code>, five times the default 2000 draws, we see the same problems.</p>
 <p>Regardless, the fact that we run into divergences when using simulated data with typical conjoint experiment dimensions says that in order to produce a posterior geometry that can be navigated, we need to reparameterize our model.</p>
 </div>
 <div id="non-centered-parameterization" class="section level2">
 <h2>Non-centered parameterization</h2>
-<p>A non-centered parameterization re-expresses the population model and likelihood for a hierarchical model by including an intermediate, deterministic transformation on a set of the hyperparameters. The benefit is that difficult dependencies between the layers in the hierarchy are broken, producing a simpler posterior geometry. See a previous post for a walkthrough of the re-parameterization using a <a href="https://www.occasionaldivergences.com/post/non-centered/">simplified population model in a hierarchical linear model</a>.</p>
+<p>A non-centered parameterization re-expresses the population model and likelihood for a hierarchical model by including an intermediate, deterministic transformation on a set of the hyperparameters. The benefit is that difficult dependencies between the layers in the hierarchy are broken, producing a simpler posterior geometry. See a previous post for a walkthrough of the re-parameterization using a <a href="https://www.occasionaldivergences.com/post/non-centered/">simplified population model as part of a hierarchical linear model</a>.</p>
 <p>Let’s see a non-centered parameterization of the hierarchical multinomial logit.</p>
 <pre class="stan"><code>// Index values, hyperprior values, observations, and covariates.
 data {
@@ -302,7 +302,7 @@ model {
     }
   }
 }</code></pre>
-<p>We’ll save this Stan script as <code>hmnl_noncentered.stan</code>. We now have the <code>Delta</code> hyperparameters in place of <code>Beta</code> in the <code>parameters</code> block, a <code>transformed parameters</code> block that introduces the <code>Beta</code> hyperparameters and imposes the deterministic transformation that is the non-centered parameterization, and a standard normal population model in the <code>model</code> block.</p>
+<p>We’ll save this Stan script as <code>hmnl_noncentered.stan</code>. We now have the <code>Delta</code> hyperparameters in place of <code>Beta</code> in the <code>parameters</code> block, a <code>transformed parameters</code> block that introduces the <code>Beta</code> hyperparameters and imposes the deterministic non-centered parameterization, and now a standard normal population model in the <code>model</code> block.</p>
 <p>The generated data doesn’t change, so we can go ahead and estimate our model by calling <code>hmnl_noncentered.stan</code>.</p>
 <pre class="r"><code>data &lt;- list(
   R = sim_values$R,    # Number of respondents.
@@ -330,16 +330,54 @@ fit_noncentered &lt;- stan(
   thin = 2,
   seed = 42
 )</code></pre>
-<p>The model runs without divergences! There was initially a warning suggesting the need for a longer chain, hence we have added <code>iter = 4000</code>. For convenience, we also thin the posterior draws with <code>thin = 2</code> to reduce the size of the model output and to keep the dimensions consistent with the default 2000 draws.</p>
-<p>We can visually check on model performance by first considering the trace plots. Given the number of parameters at play, we’ll only consider the trace plots for <code>Gamma</code>.</p>
+<p>The model runs without divergences! There also aren’t any diagnostic warnings, beyond an initial suggestion for longer chains, hence we added <code>iter = 4000</code>. For convenience, we also thin the posterior draws with <code>thin = 2</code> to reduce the size of the model output and to keep the dimensions consistent with the default 2000 draws.</p>
+<p>We can also visually check model performance by first considering the trace plots. Given the number of parameters (<code>500 x 12</code>), we will only consider the hyperparameters.</p>
 <pre class="r"><code># Check population model trace plots.
 gamma_string &lt;- str_c(&quot;Gamma[&quot;, 1:data$J, &quot;,&quot;, 1, &quot;]&quot;)
+omega_string &lt;- str_c(&quot;Omega[&quot;, 1:data$I, &quot;,&quot;, 1, &quot;]&quot;)
+tau_string &lt;- str_c(&quot;tau[&quot;, 1:data$I, &quot;]&quot;)
 for (i in 2:data$I) {
   gamma_temp &lt;- str_c(&quot;Gamma[&quot;, 1:data$J, &quot;,&quot;, i, &quot;]&quot;)
   gamma_string &lt;- c(gamma_string, gamma_temp)
-}</code></pre>
+  omega_temp &lt;- str_c(&quot;Omega[&quot;, 1:data$I, &quot;,&quot;, i, &quot;]&quot;)
+  omega_string &lt;- c(omega_string, omega_temp)
+}
+
+# Gamma.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = gamma_string,
+    n_warmup = 500,
+    facet_args = list(
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
 <p><img src="Figures/mcmc_trace-gamma.png" width="1000" /></p>
-<p>We have good mixing and clear convergence across all chains. Now let’s demonstrate parameter recovery for the <code>Gamma</code> as well.</p>
+<pre class="r"><code># Omega.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = omega_string,
+    n_warmup = 500,
+    facet_args = list(
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-omega.png" width="1000" /></p>
+<p>Note that the diagonal in a correlation matrix is fixed to 1.</p>
+<pre class="r"><code># tau.
+fit_noncentered %&gt;%
+  mcmc_trace(
+    pars = tau_string,
+    n_warmup = 500,
+    facet_args = list(
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )</code></pre>
+<p><img src="Figures/mcmc_trace-tau.png" width="1000" /></p>
+<p>Now let’s demonstrate parameter recovery.</p>
 <pre class="r"><code># Recover Gamma values.
 gamma_values &lt;- tibble(
   j = sort(rep(1:(data$J), data$I)),
@@ -357,17 +395,58 @@ fit_noncentered %&gt;%
   geom_vline(aes(xintercept = values), gamma_values, color = &quot;red&quot;) +
   facet_wrap(
     ~ .variable,
-    nrow = data$J,
-    ncol = data$I,
+    ncol = 4,
     scales = &quot;free&quot;
   )</code></pre>
 <p><img src="Figures/marginals-gamma.png" width="1000" /></p>
-<p>Beyond the HMC model diagnostics, we can see for at least a subset of the parameters that we have both good convergence and parameter recovery.</p>
+<pre class="r"><code># Recover Omega values.
+omega_values &lt;- tibble(
+  j = sort(rep(1:(data$I), data$I)),
+  i = rep(1:(data$I), data$I),
+  .variable = str_c(&quot;Omega&quot;, &quot;_&quot;, j, &quot;_&quot;, i),
+  values = as.vector(t(matrix(sim_Omega, ncol = data$I)))
+) %&gt;%
+  select(.variable, values)
+
+fit_noncentered %&gt;%
+  gather_draws(Omega[j, i]) %&gt;%
+  unite(.variable, .variable, j, i) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), omega_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    ncol = 4,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-omega.png" width="1000" /></p>
+<p>Once again, the diagonal in a correlation matrix is fixed at 1.</p>
+<pre class="r"><code># Recover tau values.
+tau_values &lt;- tibble(
+  i = 1:(data$I),
+  .variable = str_c(&quot;tau&quot;, &quot;_&quot;, i),
+  values = as.vector(sim_tau)
+) %&gt;%
+  select(.variable, values)
+
+fit_noncentered %&gt;%
+  gather_draws(tau[i]) %&gt;%
+  unite(.variable, .variable, i) %&gt;%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), tau_values, color = &quot;red&quot;) +
+  facet_wrap(
+    ~ .variable,
+    ncol = 4,
+    scales = &quot;free&quot;
+  )</code></pre>
+<p><img src="Figures/marginals-tau.png" width="1000" /></p>
+<p>While we have some difficulty recovering the variance parameters in our covariance matrix decomposition, which is typical, we can see that beyond HMC model diagnostics we have both good convergence and parameter recovery for our <em>many</em> hyperparameters.</p>
 </div>
 <div id="final-thoughts" class="section level2">
 <h2>Final thoughts</h2>
-<p>Does it matter if we use a centered or non-centered parameterization for a hierarchical multinomial logit model? Yes. Based on HMC model diagnostics and using simulated data typical of a conjoint experiment, the centered parameterization is not sufficient. Additionally, with both models running for 4000 iterations, the centered parameterization took 12 and a half hours to run while the non-centered parameterization took just 5 hours to run.</p>
-<p>This is a concern because the centered parameterization is used almost exclusively in practice. However, since HMC isn’t as widespread, the diagnostics accompanying other estimation paradigms might not indicate any problems. This post doesn’t go so far as to establish the edge cases of when either parameterization might work best or consider <em>how</em> wrong the centered parameterization is. Regardless, given the savings in computation time and the evidence presented using simulated data, the non-centered parameterization should be our default approach to choice modeling.</p>
+<p>Does it matter if we use a centered or non-centered parameterization for a hierarchical multinomial logit model? Yes. Based on HMC model diagnostics and using simulated data typical of a conjoint experiment, the centered parameterization is not sufficient. Additionally, though our primary concern isn’t <a href="https://arxiv.org/pdf/1703.06098.pdf">computational efficiency</a>, with both models running for 4000 iterations, the centered parameterization took 12 and a half hours to run while the non-centered parameterization took 5 hours to run.</p>
+<p>This difference in choice model parameterizations is a concern because the centered parameterization is used almost exclusively in practice. However, since HMC isn’t as widespread, the diagnostics accompanying other estimation paradigms might not indicate any problems. This post doesn’t go so far as to establish the edge cases of when either parameterization might work best or consider <em>how</em> wrong the centered parameterization is. Regardless, given the savings in computation time and the evidence presented using simulated data, the non-centered parameterization should be our default approach in choice modeling.</p>
 <hr />
 <div id="marc-dotson" class="section level3">
 <h3>Marc Dotson</h3>

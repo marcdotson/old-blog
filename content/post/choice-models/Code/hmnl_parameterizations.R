@@ -177,13 +177,13 @@ fit_noncentered <- read_rds(
 
 # Check population model trace plots.
 gamma_string <- str_c("Gamma[", 1:data$J, ",", 1, "]")
-# omega_string <- str_c("Omega[", 1:data$I, ",", 1, "]")
-# tau_string <- str_c("tau[", 1:data$I, "]")
+omega_string <- str_c("Omega[", 1:data$I, ",", 1, "]")
+tau_string <- str_c("tau[", 1:data$I, "]")
 for (i in 2:data$I) {
   gamma_temp <- str_c("Gamma[", 1:data$J, ",", i, "]")
   gamma_string <- c(gamma_string, gamma_temp)
-  # omega_temp <- str_c("Omega[", 1:data$I, ",", i, "]")
-  # omega_string <- c(omega_string, omega_temp)
+  omega_temp <- str_c("Omega[", 1:data$I, ",", i, "]")
+  omega_string <- c(omega_string, omega_temp)
 }
 
 # Gamma.
@@ -192,7 +192,6 @@ fit_noncentered %>%
     pars = gamma_string,
     n_warmup = 500,
     facet_args = list(
-      nrow = ceiling(length(gamma_string) / 4),
       ncol = 4,
       labeller = label_parsed
     )
@@ -204,56 +203,54 @@ ggsave(
   width = 12, height = 20, units = "in"
 )
 
-# # Omega.
-# fit_noncentered %>%
-#   mcmc_trace(
-#     pars = omega_string,
-#     n_warmup = 500,
-#     facet_args = list(
-#       nrow = ceiling(length(omega_string) / 4),
-#       ncol = 4,
-#       labeller = label_parsed
-#     )
-#   )
-#
-# ggsave(
-#   "mcmc_trace-omega.png",
-#   path = here::here("content", "post", "choice-models", "Figures"),
-#   width = 40, height = 40, units = "in"
-# )
-#
-# # tau.
-# fit_noncentered %>%
-#   mcmc_trace(
-#     pars = tau_string,
-#     n_warmup = 500,
-#     facet_args = list(
-#       nrow = ceiling(length(tau_string) / 4),
-#       ncol = 4,
-#       labeller = label_parsed
-#     )
-#   )
-#
-# ggsave(
-#   "mcmc_trace-tau.png",
-#   path = here::here("content", "post", "choice-models", "Figures"),
-#   width = 10, height = 5, units = "in"
-# )
-#
+# Omega.
+fit_noncentered %>%
+  mcmc_trace(
+    pars = omega_string,
+    n_warmup = 500,
+    facet_args = list(
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-omega.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 12, height = 40, units = "in"
+)
+
+# tau.
+fit_noncentered %>%
+  mcmc_trace(
+    pars = tau_string,
+    n_warmup = 500,
+    facet_args = list(
+      ncol = 4,
+      labeller = label_parsed
+    )
+  )
+
+ggsave(
+  "mcmc_trace-tau.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 12, height = 5, units = "in"
+)
+
 # # Check observation model trace plots.
 # beta_string <- str_c("Beta[", 1:data$R, ",", 1, "]")
 # for (i in 2:data$I) {
 #   beta_temp <- str_c("Beta[", 1:data$R, ",", i, "]")
 #   beta_string <- c(beta_string, beta_temp)
 # }
+# beta_string_rand <- beta_string[sample(1:(data$R * data$I), 32)]
 #
 # # Beta.
 # fit_noncentered %>%
 #   mcmc_trace(
-#     pars = beta_string,
+#     pars = beta_string_rand,
 #     n_warmup = 500,
 #     facet_args = list(
-#       nrow = ceiling(length(beta_string) / 4),
 #       ncol = 4,
 #       labeller = label_parsed
 #     )
@@ -262,7 +259,7 @@ ggsave(
 # ggsave(
 #   "mcmc_trace-beta.png",
 #   path = here::here("content", "post", "choice-models", "Figures"),
-#   width = 12, height = 40, units = "in"
+#   width = 12, height = 20, units = "in"
 # )
 
 # Recover Gamma values.
@@ -282,98 +279,106 @@ fit_noncentered %>%
   geom_vline(aes(xintercept = values), gamma_values, color = "red") +
   facet_wrap(
     ~ .variable,
-    nrow = data$J,
-    ncol = data$I,
+    ncol = 4,
     scales = "free"
   )
 
 ggsave(
   "marginals-gamma.png",
   path = here::here("content", "post", "choice-models", "Figures"),
-  width = 25, height = 12, units = "in"
+  width = 12, height = 20, units = "in"
 )
 
-# # Recover Omega values.
-# omega_values <- tibble(
-#   j = sort(rep(1:(data$I), data$I)),
-#   i = rep(1:(data$I), data$I),
-#   .variable = str_c("Omega", "_", j, "_", i),
-#   values = as.vector(t(matrix(sim_Omega, ncol = data$I)))
-# ) %>%
-#   select(.variable, values)
-#
-# fit_noncentered %>%
-#   gather_draws(Omega[j, i]) %>%
-#   unite(.variable, .variable, j, i) %>%
-#   ggplot(aes(x = .value, y = .variable)) +
-#   geom_halfeyeh(.width = .95) +
-#   geom_vline(aes(xintercept = values), omega_values, color = "red") +
-#   facet_wrap(
-#     ~ .variable,
-#     nrow = data$I,
-#     ncol = data$I,
-#     scales = "free"
-#   )
-#
-# ggsave(
-#   "marginals-omega.png",
-#   path = here::here("content", "post", "choice-models", "Figures"),
-#   width = 25, height = 12, units = "in"
-# )
-#
-# # Recover tau values.
-# tau_values <- tibble(
-#   i = 1:(data$I),
-#   .variable = str_c("tau", "_", i),
-#   values = as.vector(sim_tau)
-# ) %>%
-#   select(.variable, values)
-#
-# fit_noncentered %>%
-#   gather_draws(tau[i]) %>%
-#   unite(.variable, .variable, i) %>%
-#   ggplot(aes(x = .value, y = .variable)) +
-#   geom_halfeyeh(.width = .95) +
-#   geom_vline(aes(xintercept = values), tau_values, color = "red") +
-#   facet_wrap(
-#     ~ .variable,
-#     nrow = ceiling(data$I / 4),
-#     ncol = 4,
-#     scales = "free"
-#   )
-#
-# ggsave(
-#   "marginals-tau.png",
-#   path = here::here("content", "post", "choice-models", "Figures"),
-#   width = 25, height = 12, units = "in"
-# )
-#
+# Recover Omega values.
+omega_values <- tibble(
+  j = sort(rep(1:(data$I), data$I)),
+  i = rep(1:(data$I), data$I),
+  .variable = str_c("Omega", "_", j, "_", i),
+  values = as.vector(t(matrix(sim_Omega, ncol = data$I)))
+) %>%
+  select(.variable, values)
+
+fit_noncentered %>%
+  gather_draws(Omega[j, i]) %>%
+  unite(.variable, .variable, j, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), omega_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    ncol = 4,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-omega.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 12, height = 40, units = "in"
+)
+
+# Recover tau values.
+tau_values <- tibble(
+  i = 1:(data$I),
+  .variable = str_c("tau", "_", i),
+  values = as.vector(sim_tau)
+) %>%
+  select(.variable, values)
+
+fit_noncentered %>%
+  gather_draws(tau[i]) %>%
+  unite(.variable, .variable, i) %>%
+  ggplot(aes(x = .value, y = .variable)) +
+  geom_halfeyeh(.width = .95) +
+  geom_vline(aes(xintercept = values), tau_values, color = "red") +
+  facet_wrap(
+    ~ .variable,
+    ncol = 4,
+    scales = "free"
+  )
+
+ggsave(
+  "marginals-tau.png",
+  path = here::here("content", "post", "choice-models", "Figures"),
+  width = 12, height = 5, units = "in"
+)
+
 # # Recover Beta values.
+# beta_rand <- sort(sample(1:(data$R * data$I), 32))
 # beta_values <- tibble(
 #   n = sort(rep(1:(data$R), data$I)),
 #   i = rep(1:(data$I), data$R),
 #   .variable = str_c("Beta", "_", n, "_", i),
 #   values = as.vector(t(matrix(sim_Beta, ncol = data$I)))
 # ) %>%
+#   mutate(id = row_number()) %>%
+#   filter(id %in% beta_rand) %>%
 #   select(.variable, values)
+#
+# beta_ids <- fit_noncentered %>%
+#   gather_draws(Beta[n, i]) %>%
+#   unite(.variable, .variable, n, i) %>%
+#   distinct(.variable) %>%
+#   mutate(id = row_number()) %>%
+#   select(.variable, id)
 #
 # fit_noncentered %>%
 #   gather_draws(Beta[n, i]) %>%
 #   unite(.variable, .variable, n, i) %>%
+#   left_join(beta_ids) %>%
+#   filter(id %in% beta_rand) %>%
 #   ggplot(aes(x = .value, y = .variable)) +
 #   geom_halfeyeh(.width = .95) +
 #   geom_vline(aes(xintercept = values), beta_values, color = "red") +
 #   facet_wrap(
 #     ~ .variable,
-#     nrow = data$K,
-#     ncol = data$I,
+#     ncol = 4,
 #     scales = "free"
 #   )
 #
 # ggsave(
 #   "marginals-beta.png",
 #   path = here::here("content", "post", "choice-models", "Figures"),
-#   width = 25, height = 12, units = "in"
+#   width = 12, height = 20, units = "in"
 # )
 
 # Miscellaneous -----------------------------------------------------------
