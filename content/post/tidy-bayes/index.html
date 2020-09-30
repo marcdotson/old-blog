@@ -1,0 +1,433 @@
+---
+title: "Modeling workflow with tidy Bayes"
+author: "Marc Dotson"
+date: "2020-11-30"
+slug: tidy-bayes
+---
+
+<script src="/rmarkdown-libs/header-attrs/header-attrs.js"></script>
+
+
+<p>This <strong>tidy Bayesian workflow</strong> details the process of statistical modeling using a tidy approach to Bayesian inference along with modern tools and diagnostics. In particular, we will employ the tidyverse for data wrangling and visualization and Stan for modeling.</p>
+<p>The workflow is composed of three sections: <strong>model building</strong>, <strong>model calibration</strong>, and <strong>model validation</strong>. The workflow material draws heavily from Michael Betancourt’s case studies and training on using Stan at Drexel University in Fall 2018.</p>
+<p>You’ll first need to <a href="https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started">install Stan, including a compiler, and rstan</a>. This can take some time, so plan accordingly.</p>
+<div id="model-building" class="section level2">
+<h2>Model Building</h2>
+<div id="describe-the-model-conceptually" class="section level3">
+<h3>Describe the Model Conceptually</h3>
+<p>A model starts conceptually: What is the data generating process? In other words, where do the data come from? This conceptual model often lives within a literature of model building, is motivated by theory, and at its most basic may simply be a consideration of how to relax assumptions in an existing model. Document this description, as it likely serves as the beginning of an introduction to the project. Above all, the model needs to be consistent with our domain expertise.</p>
+<div id="example-consumer-choice" class="section level4">
+<h4>Example: Consumer Choice</h4>
+<p>For a running example, let’s consider consumer choice. Drawing from economic theory, we can conceptualize the data generating process as follows: Consumers get “utility” from different features of a product such that they simply choose the product that gives them the most utility overall. We can add a lot of complications to this model, but conceptually, this is probably the simplest expression.</p>
+</div>
+</div>
+<div id="define-observations-and-relevant-summary-statistics" class="section level3">
+<h3>Define Observations and Relevant Summary Statistics</h3>
+<p>As part of this conceptual description of the model, we should consider the ideal dataset. We encode the information about the observations using the <code>data</code> block in Stan. We should also consider what summary statistics and visualizations would be helpful to evaluate the model.</p>
+<div id="example-experimental-designs" class="section level4">
+<h4>Example: Experimental Designs</h4>
+<p>For consumer choice, while we could get scanner data, if we can run an experiment like a conjoint, we can cleanly know what products the consumer was considering as well as the features of the chosen product and each of the competing products. As a further simplification, we can consider all binary attribute levels (i.e., either included or not included).</p>
+<p>We can encode the observations using the <code>data</code> block in our Stan file.</p>
+<pre class="stan"><code>// Observed choices and the experimental design.
+data {
+  int N;             // Number of observations.
+  int P;             // Number of product alternatives.
+  int L;             // Number of (estimable) attribute levels.
+  
+  int Y[N];          // Vector of observed choices.
+  matrix[P, L] X[N]; // Experimental design for each observation.
+}</code></pre>
+<p>The summary statistic that is most informative for a model of choice is the implied choice probability. A priori, we likely expect that the choice probabilities across product alternatives are more or less equal – that there isn’t a dominating alternative.</p>
+</div>
+</div>
+<div id="build-a-generative-model" class="section level3">
+<h3>Build a Generative Model</h3>
+<p>Next, we translate our simplified expression of the conceptual model into a mathematical specification. The full model includes both the likelihood <span class="math inline">\(p(y|\theta)\)</span> (i.e., the data generating process) and the prior <span class="math inline">\(p(\theta)\)</span>. We start simple both because we would prefer a simpler model if it performs just as well as a more complicated model and because we can build the model by adding complexity as needed. This is encoded by adding the <code>parameters</code> and <code>model</code> blocks in Stan. The specified model can be compared with competing models to build evidence for and against motivating theory. In this way we can view science as a sequence of models that serve as evidence in continuously revising and updating theory.</p>
+<ul>
+<li>Note that the RNG functions match the dimensions of their arguments. If we input the same values for each of the random numbers, we need to use a for loop since it will be a single variate each time. That isn’t a problem in terms of computational efficiency since these aren’t sampling statements.</li>
+</ul>
+<div id="example-multinomial-logit" class="section level4">
+<h4>Example: Multinomial Logit</h4>
+<p>The translation of the simplest expression of our conceptual choice model into a mathethematical specification yields a multinomial logit model. The multinomial logit is a regression where the response variable <span class="math inline">\(y\)</span> can take on more than one discrete value (e.g., the chosen alternative). It is a generalization of the logit model. We are also simplifying things by assuming an aggregate (i.e., non-hierarchical) model, meaning every consumer gets the same utility <span class="math inline">\(\beta\)</span> or from every attribute level. It’s a stupid assumption, but simplifying assumptions usually are. Here’s the Stan code:</p>
+<pre class="stan"><code>// Observed choices and the experimental design.
+data {
+  int N;             // Number of observations.
+  int P;             // Number of product alternatives.
+  int L;             // Number of (estimable) attribute levels.
+  
+  int Y[N];          // Vector of observed choices.
+  matrix[P, L] X[N]; // Experimental design for each observations.
+}
+
+// Parameters for the multinomial logit.
+parameters {
+  vector[L] beta;    // Vector of aggregate beta coefficients.
+}
+
+// Multinomial logit model.
+model {
+  // Standard normal prior for beta.
+  beta ~ normal(0, 1);
+  
+  // Multinomial logit.
+  for (n in 1:N) {
+    Y[n] ~ categorical_logit(X[n] * beta);
+  }
+}</code></pre>
+</div>
+</div>
+<div id="perform-prior-predictive-checks" class="section level3">
+<h3>Perform Prior Predictive Checks</h3>
+<p>Now that we’ve built a simple model, we need to ensure that it will perform as expected (i.e., that it is consistent with our domain expertise). Specifically, we need to be sure that the prior and likelihood are <em>interacting</em> as expected, something nearly impossible to determine by just looking at the model specification. To do this, we need to perform <strong>prior predictive checks</strong>, <em>prior</em> because this is before we have data and <em>predictive</em> because we’re considering what the model as specified would predict.</p>
+<ul>
+<li>Draw parameter values from the prior <span class="math inline">\(\tilde{\theta} \sim p(\theta)\)</span>.</li>
+<li>Draw data from the likelihood parameterized by the draws of the parameter values <span class="math inline">\(\tilde{y} \sim p(y|\tilde{\theta})\)</span>.</li>
+<li>Summarize these data <span class="math inline">\(\tilde{y}\)</span> by visualizing the relevant summary statistics.</li>
+<li>Repeat this process many times, returning to modify the likelihood and prior as needed.</li>
+</ul>
+<p>The resulting <strong>prior predictive distribution</strong> should be plausible based on your domain expertise and provides a clean way to communicate and evaluate the consequences of the assumptions you’ve made in building your model, including specifying the prior. We conduct the prior predictive check by adding the <code>generated quantities</code> block in Stan in place of the <code>parameters</code> and <code>model</code> blocks, since we’re <em>generating</em> or <em>simulating</em> data.</p>
+<p>Note that we could also simulate data just using R. However, simulating data using Stan does a few things for us.</p>
+<ul>
+<li>If we can, we will use Stan to estimate the model, so we reduce duplicating efforts by keeping the simulation in Stan.</li>
+<li>Some of the distributions we’ll want to use (e.g., the LKJ distribution) don’t exist natively outside Stan, again duplicating efforts.</li>
+</ul>
+<div id="example-multinomial-logit-prior-predictive-check" class="section level4">
+<h4>Example: Multinomial Logit Prior Predictive Check</h4>
+<p>Here we translate the <code>parameters</code> and <code>model</code> blocks into a <code>generated quantities</code> block to simulate data according to the proposed prior and likelihood. Note how statements about distributions (e.g., <code>beta ~ normal(0, 1)</code>) get turned into statements that generate parameter values and data from those same distributions (e.g., <code>beta = normal_rng(0, 1)</code>). Also note that besides the number of observations, etc. the <code>data</code> arguments have also moved to be initialized in the <code>generated quantities</code> block since they too are being simulated.</p>
+<pre class="stan"><code>// Number of observations, choices, etc. to simulate.
+data {
+  int N;             // Number of observations.
+  int P;             // Number of product alternatives.
+  int L;             // Number of (estimable) attribute levels.
+}
+
+// Simulate data according to the multinomial logit model.
+generated quantities {
+  int Y[N];          // Vector of observed choices.
+  matrix[P, L] X[N]; // Experimental design for each observations.
+  vector[L] beta;    // Vector of aggregate beta coefficients.
+
+  // Draw parameter values from the prior.
+  for (l in 1:L) {
+    beta[l] = normal_rng(0, 1);
+  }
+
+  // Generate an experimental design and draw data from the likelihood.
+  for (n in 1:N) {
+    for (p in 1:P) {
+      for (l in 1:L) {
+        X[n][p, l] = binomial_rng(1, 0.5);
+      }
+    }
+    Y[n] = categorical_logit_rng(X[n] * beta);
+  }
+}</code></pre>
+<p>We then call the generative model from R.</p>
+<pre class="r"><code># Load libraries.
+library(tidyverse)
+library(rstan)
+
+# Specify the data values for simulation in a list.
+sim_values &lt;- list(
+  N = 100,           # Number of observations.
+  P = 3,             # Number of product alternatives.
+  L = 10             # Number of (estimable) attribute levels.
+)
+
+# Specify the number of draws (i.e., simulated datasets).
+R &lt;- 50
+
+# Simulate data.
+sim_data &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;mnl_simulate.stan&quot;), 
+  data = sim_values,
+  iter = R,
+  warmup = 0, 
+  chains = 1, 
+  refresh = R,
+  seed = 42,
+  algorithm = &quot;Fixed_param&quot;
+)</code></pre>
+<p>We can now extract the simulated data to perform the prior predictive check and produce the prior predictive distribution.</p>
+<p>Here, we are computing the implied choice probabilities using the experimental design <code>X</code> and the parameters <code>beta</code>. Note that in this instance summaring the data <code>Y</code> is not informative; we are summarizing the data <code>X</code> and parameters <code>beta</code> combined to produce the underlying, implied choice probabilities that produce <code>Y</code>.</p>
+<pre class="r"><code># Extract simulated data and parameters.
+sim_x &lt;- extract(sim_data)$X
+sim_b &lt;- extract(sim_data)$beta
+
+# Compute the implied choice probabilities.
+probs &lt;- NULL
+for (r in 1:R) {
+  probs_temp &lt;- NULL
+  for (n in 1:sim_values$N) {
+    exp_xb &lt;- exp(sim_x[r,n,,] %*% sim_b[r,])
+    max_prob &lt;- max(exp_xb / sum(exp_xb))
+    probs &lt;- c(probs, max_prob)
+  }
+  probs &lt;- cbind(probs, probs_temp)
+}
+
+# Make sure there aren&#39;t dominating alternatives.
+tibble(probs) %&gt;% 
+  ggplot(aes(x = probs)) +
+  geom_histogram()</code></pre>
+<p><img src="Figures/probs_plot.png" /></p>
+<p>The prior predictive distribution doesn’t have a spike at probability of 1, so our prior of <code>beta ~ normal(0, 1)</code> combined with the multinomial logit likelihood does not produce dominating alternatives. This part of the workflow typically requires some iteration in terms of model building, since the ways in which the prior and likelihood can combine aren’t obvious. When there are issues, we can modify the prior and/or the likelihood until we see a joint distribution in terms of the prior predictive distribution that fits our domain expertise.</p>
+<ul>
+<li>What about using a mosaic plot to check for dominating alternatives?</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="model-calibration" class="section level2">
+<h2>Model Calibration</h2>
+<div id="calibrate-the-model-with-simulated-data-and-evaluate" class="section level3">
+<h3>Calibrate the Model with Simulated Data and Evaluate</h3>
+<p>Once we have completed iterating through our prior predictive check and have decided on a fully specified generative model that accurately reflects our domain expertise, we are ready to <em>calibrate</em> (i.e., <em>estimate</em> or <em>fit</em>) the model. An underlying question at this point in our workflow is whether our estimation algorithm is sufficient to accurately fit the model. The more complex our model becomes, the more this will be of concern.</p>
+<p>Before calibrating the model with actual data where we can easily confound the model’s performance on the given data with the performance of the algorithm, we first confirm that the model and estimation routine are performing as expected by calibrating the model using simulated data. With simulated data, we have specified the underlying truth and can focus entirely on evaluating the estimation procedure and demonstrating parameter recovery.</p>
+<p>Just as we used the prior predictive check as a diagnostic to help set priors and specify the likelihood, so too will our evaluation of calibrating the model with simulated data help inform how we <em>parameterize</em> the model as well as what estimation algorithms we employ. A model can be expressed in a number of different, mathematically equivalent ways. However, a given estimation routine may work best using certain parameterizations. Thus, when diagnostics suggest it, we may need to <strong>reparameterize</strong> our model. Additionally, while we would like to use Hamiltonian Monte Carlo (HMC) in Stan for estimation, in no small part because it has powerful diagnostics, it is possible we may need to depart and use a different estimation routine for a given model.</p>
+<p>To summarize, we need to:</p>
+<ul>
+<li>Fit the model on simulated data where we know the true parameter values.</li>
+<li>Use diagnostics to evaluate how the estimation routine performs for the model.</li>
+<li>Reparameterize the model or change estimation algorithms as needed.</li>
+<li>Demonstrate parameter recovery for the given model parameterization and estimation routine.</li>
+</ul>
+<p>This step of calibrating the model with simulated data and then evaluating can be referred to collectively as a <strong>simulation experiment</strong>.</p>
+<div id="example-multinomial-logit-model-simulation-experiment" class="section level4">
+<h4>Example: Multinomial Logit Model Simulation Experiment</h4>
+<div id="fit-the-model-on-simulated-data" class="section level5">
+<h5>Fit the Model on Simulated Data</h5>
+<p>We already have a number of simulated datasets from our prior predictive check. Let’s start with using just one of them for calibration. We also have the model specified, which we can call from R.</p>
+<pre class="r"><code># Extract the data from the first simulated dataset.
+Y &lt;- extract(sim_data)$Y[1,]
+X &lt;- extract(sim_data)$X[1,,,]
+
+# Specify the data for calibration in a list.
+data &lt;- list(
+  N = length(Y),           # Number of observations.
+  P = nrow(X[1,,]),        # Number of product alternatives.
+  L = ncol(X[1,,]),        # Number of (estimable) attribute levels.
+  Y = Y,                   # Vector of observed choices.
+  X = X                    # Experimental design for each observations.
+)
+
+# Calibrate the model.
+fit &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;mnl_estimate.stan&quot;),
+  data = data,
+  seed = 42
+)</code></pre>
+<p>Note that we are using the defaults for the number of iterations (i.e., 2,000, half of which are warmup iterations) and the number of chains (i.e., 4). Once the model has run, which may take some time depending on the model and the data, we can evaluate it, starting with Stan’s built-in diagnostics.</p>
+</div>
+<div id="use-diagnostics-to-evaluate-model-fit" class="section level5">
+<h5>Use Diagnostics to Evaluate Model Fit</h5>
+<p><strong>Hamiltonian Monte Carlo Diagnostics</strong></p>
+<p>There are a number of powerful HMC-specific diagnostics that allow us to evaluate how well the algorithm is performing for our model. One of the assumptions for Markov chain Monte Carlo (MCMC) algorithms generally and HMC in particular is that the posterior we are exploring is fairly smooth. If it isn’t smooth, our model will have <em>divergent trajectories</em> when exploring the posterior. When clustered, these <strong>divergences</strong> not only indicate an issue with model fit, where they concentrate also suggest ways forward (e.g., they are often an indication of the need to reparameterize the model). These issues will be present for any MCMC, but they are easier to diagnose using HMC.</p>
+<p>Let’s start with a numeric summary.</p>
+<pre class="r"><code># Check divergences.
+library(bayesplot)
+source(here::here(&quot;Code&quot;, &quot;stan_utility.R&quot;))
+
+check_div(fit)</code></pre>
+<blockquote>
+<p>[1] “0 of 4000 iterations ended with a divergence (0%)”</p>
+</blockquote>
+<p>Of the 1,000 iterations across 4 chains, there aren’t any divergences. We can also visualize this.</p>
+<pre class="r"><code>as.matrix(fit) %&gt;% 
+  mcmc_scatter(
+    pars = c(&quot;beta[1]&quot;, &quot;beta[2]&quot;), 
+    np = nuts_params(fit),
+    np_style = scatter_style_np(div_color = &quot;green&quot;, div_alpha = 0.5)
+  )
+)</code></pre>
+<p><img src="Figures/mcmc_scatter.png" /></p>
+<p>If there were divergences for the two parameters in this bivariate plot, they would be highlighted in green. Without divergences, we have evidence that our estimation routine is converging and that the posterior geometry is smooth. Note that <em>occassional divergences</em> aren’t a problem – it’s a pattern or structure to the divergences that indicates issues with the model or computational tool.</p>
+<p><strong>General Markov Chain Monte Carlo Diagnostics</strong></p>
+<p>More generally, we can check the effective sample size across iterations, along with the <code>Rhat</code> statistic.</p>
+<pre class="r"><code># Check the effective sample size.
+check_n_eff(fit)</code></pre>
+<blockquote>
+<p>[1] “n_eff / iter looks reasonable for all parameters”</p>
+</blockquote>
+<pre class="r"><code># Check the Rhat statistic.
+check_rhat(fit)</code></pre>
+<blockquote>
+<p>[1] “Rhat looks reasonable for all parameters”</p>
+</blockquote>
+<p>Another general diagnostic is looking at trace plots. This is a visualization that allows us to quickly see whether the model is converging and that each chain is converging to the same value.</p>
+<pre class="r"><code># Check trace plots.
+fit %&gt;% 
+  extract(
+    inc_warmup = TRUE, 
+    permuted = FALSE
+  ) %&gt;% 
+  mcmc_trace(
+    pars = c(
+      &quot;beta[1]&quot;, &quot;beta[2]&quot;, &quot;beta[3]&quot;, &quot;beta[4]&quot;,
+      &quot;beta[5]&quot;, &quot;beta[6]&quot;, &quot;beta[7]&quot;, &quot;beta[8]&quot;
+    ),
+    n_warmup = 1000,
+    facet_args = list(nrow = 2, labeller = label_parsed)
+  )</code></pre>
+<p><img src="Figures/mcmc_trace.png" /></p>
+<p>These chains are clearly converging. However, trace plots can’t help us diagnose problems with the the geometry of the posterior or suggest where and how to reparameterize. Thus, they’re a fine addition but not a replacement for evaluating model estimation with divergences, assuming we’re using HMC.</p>
+<p>If we have clustered divergences, we may need to reparameterize our model. Even then, we may discover that we can’t use Stan and HMC at all. As we move outside of HMC, we can still look at trace plots and calculate the effective sample size and <code>Rhat</code> statistic, but we no longer have access to using divergences as a diagnostic.</p>
+<p>However, as a general diagnostic (i.e., with or without HMC), we can use <strong>simulation-based calibration</strong>. If we simulate from the joint distribution (i.e., the prior and likelihood), construct a posterior, and then average over the posterior, we should get back the prior.</p>
+<p>Let’s consider this step-by-step:</p>
+<ul>
+<li>Draw parameter values from the prior <span class="math inline">\(\tilde{\theta} \sim p(\theta)\)</span>.</li>
+<li>Draw data from the likelihood parameterized by the draws of the parameter values <span class="math inline">\(\tilde{y} \sim p(y|\tilde{\theta})\)</span>.</li>
+<li>Calibrate the model to get parameter estimates from the posterior <span class="math inline">\(\tilde{\theta}^\prime \sim p(\theta^\prime | \tilde{y})\)</span>.</li>
+</ul>
+<p>Ranks may be the best way to test: <span class="math inline">\(r = \#\{\tilde{\theta} &lt; \tilde{\theta}^\prime_n\}\)</span>. This should give us a uniform distribution. It should be obvious when there are problems.</p>
+<p>Since we are working with simulated data, a final step we can do is demonstrate parameter recovery. Since certain values have been specified for the parameters in order to simulate data, we can make sure that the model has converged on these same values. However, parameter recovery alone, much like trace plots, don’t ensure proper behavior of the estimation procedure.</p>
+<blockquote>
+<p>“Parameter recovery is an additional calibration that you might require of a model as there are no general guarantees of posterior behavior in Bayesian inference. That said, non- or weak- identifiability can manifest in especially poor calibrations.” -Michael Betancourt</p>
+</blockquote>
+<p>Here we extract the true parameter values for the first dataset and plot the true value along with the marginal posterior for the first parameter.</p>
+<pre class="r"><code># Recover parameter values.
+beta &lt;- extract(sim_data)$beta[1,]
+
+as.array(fit) %&gt;% 
+  mcmc_areas(pars = c(&quot;beta[3]&quot;)) +
+  vline_at(beta[3], color = &quot;red&quot;)</code></pre>
+<p><img src="Figures/mcmc_hist.png" /></p>
+<p>Note that the true value of the parameter (in red) is within the default 90% confidence band of the marginal posterior. This is an example of the parameter value being recovered.</p>
+<p>What about the following warning? Running with default number of iterations results in:</p>
+<pre><code>Warning message:
+Tail Effective Samples Size (ESS) is too low, indicating posterior variances and tail quantiles may be unreliable.
+Running the chains for more iterations may help. See
+http://mc-stan.org/misc/warnings.html#tail-ess </code></pre>
+</div>
+</div>
+</div>
+<div id="calibrate-the-model-with-real-data-and-evaluate" class="section level3">
+<h3>Calibrate the Model with Real Data and Evaluate</h3>
+<p>Once we feel confident that the model is a correct reflection of the underlying conceptual model and that the model is performing as expected on simulated data, we can estimate the model using real data.</p>
+<p>Note that unlike the simulated data, which is already structured correctly, we will need to make sure that the choices are a vector and the design matrix is an array.</p>
+<p>Finally, we’ll want to use some of the same diagnostics as in the simulation experiment to make sure nothing strange has been introduced.</p>
+<div id="example-multinomial-logit-model-on-premium-chocolate-data" class="section level4">
+<h4>Example: Multinomial Logit Model on Premium Chocolate Data</h4>
+<div id="fit-the-model-on-real-data" class="section level5">
+<h5>Fit the Model on Real Data</h5>
+<p>Similar to before, we can go ahead and prepare the data and call the model from R.</p>
+<pre class="r"><code># Load data.
+Y &lt;- readRDS(here::here(&quot;Data&quot;, &quot;Y.RDS&quot;))
+X &lt;- readRDS(here::here(&quot;Data&quot;, &quot;X.RDS&quot;))
+
+# Specify the data for calibration in a list.
+data &lt;- list(
+  N = length(Y),           # Number of observations.
+  P = nrow(X[1,,]),        # Number of product alternatives.
+  L = ncol(X[1,,]),        # Number of (estimable) attribute levels.
+  Y = Y,                   # Vector of observed choices.
+  X = X                    # Experimental design for each observations.
+)
+
+# Calibrate the model.
+fit &lt;- stan(
+  file = here::here(&quot;Code&quot;, &quot;mnl_estimate.stan&quot;),
+  data = data,
+  seed = 42
+)</code></pre>
+</div>
+<div id="use-diagnostics-to-evaluate-model-fit-1" class="section level5">
+<h5>Use Diagnostics to Evaluate Model Fit</h5>
+<pre class="r"><code># Check divergences.
+check_div(fit)</code></pre>
+<blockquote>
+<p>[1] “0 of 4000 iterations ended with a divergence (0%)”</p>
+</blockquote>
+<pre class="r"><code># Check the effective sample size.
+check_n_eff(fit)</code></pre>
+<blockquote>
+<p>[1] “n_eff / iter looks reasonable for all parameters”</p>
+</blockquote>
+<pre class="r"><code># Check the Rhat statistic.
+check_rhat(fit)</code></pre>
+<blockquote>
+<p>[1] “Rhat looks reasonable for all parameters”</p>
+</blockquote>
+<p>We could think about checking the trace plots. However, since we have moved to 61 <code>beta</code> parameters, the trouble with checking individual trace plots becomes clear. That said, we have done our due diligence with the simulation experiment and our core diagnostics check out to confirm that the model has converged.</p>
+<p>Once again, there is often a great deal of iteration at this point of the workflow. We may need to tune the HMC by including more iterations, both warmup and post-warmup, as well as a few other parameters that controls the trajectory of the sampler. Beyond that, we may need to reparameterize, as we have discussed, or move to a sampler other than HMC.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="model-validation" class="section level2">
+<h2>Model Validation</h2>
+<div id="perform-posterior-predictive-checks" class="section level3">
+<h3>Perform Posterior Predictive Checks</h3>
+<p>If our model is a good fit, we should be able to generate data from it that looks a lot like the data we observed. To do this, we perform <strong>posterior predictive checks</strong>, <em>posterior</em> because at this point we have used data to inform our model and <em>predictive</em> because we’re considering what the model, so informed, would predict.</p>
+<ul>
+<li>Draw parameter values from the posterior <span class="math inline">\(\tilde{\theta} \sim p(\theta|y)\)</span>.</li>
+<li>Draw predicted observations from the proposed likelihood parameterized by the draws of the parameters values <span class="math inline">\(\tilde{y} \sim p(y|\tilde{\theta})\)</span>.</li>
+<li>Visualize a comparison between these predicted observations <span class="math inline">\(\tilde{y}\)</span> and the actual observations <span class="math inline">\(y\)</span> to see if something is off.</li>
+<li>Repeat this process many times, returning to modify the likelihood and prior as needed.</li>
+</ul>
+<p>The draws from this <strong>posterior predictive distribution</strong> provide a final check on the assumptions of the model and how it interacts with actual data. Is there some feature of the data, and thus the data generating process, that we have misunderstood? Is our prior behaving in unexpected ways? Once again, we can return and iterate through the workflow based on what we learn here.</p>
+<p>We should use the same summaries we used for the prior predictive check. In general, we are looking for model <strong>misfit</strong>, where the model is too simple or otherwise doesn’t fit the data well, and model <strong>overfit</strong>, where the model adheres too closely to this specific dataset. To summarize:</p>
+<ul>
+<li>Compare draws from the posterior predictive distribution to the data to check for <em>misfit</em>.</li>
+<li>Compare draws from the posterior predictive distribution to the hold-out data to check for <em>overfit</em>.</li>
+</ul>
+<div id="example-multinomial-logit-posterior-predictive-check" class="section level4">
+<h4>Example: Multinomial Logit Posterior Predictive Check</h4>
+<p>There are a number of ways to generate data from the posterior predictive distribution. Similar to how we generated data for the <em>prior</em> predictive check, we can use the <code>generated quantities</code> block again, this time after the <code>parameters</code> and <code>models</code> blocks. Thus, as the model is being estimated, we are taking draws from the posterior predictive distribution.</p>
+<pre class="stan"><code>// Generate draws from the posterior predictive distribution.
+generated quantities {
+  int yrep[N];      // Vector of predictions.
+
+  // Generate a prediction for each observation.
+  for (n in 1:N) {
+    yrep[n] = categorical_logit_rng(X[n] * beta);
+  }
+}</code></pre>
+<p>We could specify a separate number of predictions for each post-warmup iteration and chain by including a new variable in the <code>data</code> block and referencing it here rather than <code>N</code>. We can then extract these draws from the model output and run a number of different posterior predictive checks.</p>
+<pre class="r"><code># Extract parameters and predictions.
+beta &lt;- extract(fit)$beta
+yrep &lt;- extract(fit)$yrep
+
+# Evaluate the choices directly.
+ppc_hist(Y, yrep[1:10,])</code></pre>
+<p><img src="Figures/ppc_hist.png" /></p>
+<p>The typical posterior predictive check on <span class="math inline">\(y\)</span> and <span class="math inline">\(yrep\)</span> themselves aren’t particluarly enlightening. As we saw with the prior predictive check, we need to consider something more primitive, such as the implied choice probabilities that produce <code>yrep</code>.</p>
+<pre class="r"><code># Compute the implied choice probabilities for the final 1/10 of draws.
+probs &lt;- NULL
+for (r in (dim(beta)[1] - dim(beta)[1] * 1/10):dim(beta)[1]) {
+  probs_temp &lt;- NULL
+  for (n in 1:length(Y)) {
+    exp_xb &lt;- exp(X[n,,] %*% beta[r,])
+    max_prob &lt;- max(exp_xb / sum(exp_xb))
+    probs &lt;- c(probs, max_prob)
+  }
+  probs &lt;- cbind(probs, probs_temp)
+}
+
+# Make sure there aren&#39;t dominating alternatives.
+tibble(probs) %&gt;% 
+  ggplot(aes(x = probs)) +
+  geom_histogram()</code></pre>
+<p><img src="Figures/ppc_probs_plot.png" /></p>
+<p>While there are other, more informative posterior predictive checks we might consider, this gives us a sense that the model is working as expected.</p>
+</div>
+</div>
+<div id="model-comparison" class="section level3">
+<h3>Model Comparison</h3>
+<p>At the beginning of the workflow, we considered that the specified model might ultimately be compared with competing models as a way of building evidence for and against motivating theory as part of a sequence of models that serve to continuously revise and update scientific theory. While the argument might be made that <em>robust</em> posterior predictive checks could be used in place of such model comparison, a single value to compare models is a helpful currency in our workflow.</p>
+<p>There are a variety of different in-sample and out-of-sample fit statistics we could use. The top of the list for us should be WAIC, LOO, and (specific to our running example) hit rates.</p>
+<p>Beyond fit statistics, we need to investigate the resulting posterior distribution and consider how it informs the motivating decision. This is an element of model comparison as well, where we can consider how each of the model differs in their informing decision-making.</p>
+</div>
+</div>
+<div id="links" class="section level2">
+<h2>Links</h2>
+<ul>
+<li><a href="https://betanalpha.github.io/assets/case_studies/principled_bayesian_workflow.html">Towards a Principled Bayesian Workflow</a></li>
+<li><a href="http://mjskay.github.io/tidybayes/">tidybayes: Bayesian analysis + tidy data + geoms</a></li>
+</ul>
+<hr />
+<div id="marc-dotson" class="section level3">
+<h3>Marc Dotson</h3>
+<p>Marc is an assistant professor of marketing at the BYU Marriott School of Business. He graduated with an MSc from The London School of Economics and Political Science in 2009 and a PhD from The Ohio State University in 2016. His research interests include Bayesian inference, predictive modeling, consumer preference heterogeneity, and unstructured data. Marc teaches marketing analytics. You can find him on <a href="https://twitter.com/marcdotson">Twitter</a> and <a href="https://github.com/marcdotson">GitHub</a>.</p>
+</div>
+</div>

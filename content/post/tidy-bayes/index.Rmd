@@ -1,7 +1,7 @@
 ---
-title: "A Tidy Bayesian Workflow"
+title: "Modeling workflow with tidy Bayes"
 author: "Marc Dotson"
-date: '2020-09-01'
+date: "2020-11-30"
 slug: tidy-bayes
 ---
 
