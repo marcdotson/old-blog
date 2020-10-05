@@ -7,9 +7,22 @@ slug: tidy-models
 
 Intro.
 
-## Subtitle
+## Model building
 
-...
+- Define the model conceptually
+- Consider the data generating process (including model type)
+- Perform prior predictive checks
+
+## Model fitting
+
+- Set the engine, including setting priors
+- Diagnostics
+
+## Model validation
+
+- Tidy output
+- Perform posterior predictive checks
+- Model fit and prediction
 
 -----
 
