@@ -12,11 +12,12 @@ Intro.
 - Define the model conceptually
 - Consider the data generating process (including model type)
 - Perform prior predictive checks
+- Data wrangling/pre-processing?
 
 ## Model fitting
 
 - Set the engine, including setting priors
-- Diagnostics
+- Run the model and check diagnostics
 
 ## Model validation
 
