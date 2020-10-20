@@ -19,7 +19,7 @@ Intro.
 
 - Set the engine, including setting priors
 - Apply the data pre-processing recipe using workflow
-- Run the model and check diagnostics
+- Run the model (including tuning hyperparameters) and check diagnostics
 
 ## Model validation
 
