@@ -12,13 +12,13 @@ Intro.
 - Define the model conceptually
 - Consider the data generating process (including model type)
 - Perform prior predictive checks
-- Data splitting (test/train)
+- Data splitting (test/train) or (test/[train/validate])
 - Data pre-processing (using recipe)
 
 ## Model fitting
 
 - Set the engine, including setting priors
-- Apply the data pre-processing recipe using workflow
+- Bundle the data pre-processing recipe and model with workflow
 - Run the model (including tuning hyperparameters) and check diagnostics
 
 ## Model validation
