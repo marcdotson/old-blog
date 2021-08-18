@@ -1,7 +1,6 @@
 title = "Occasional Divergences"
 baseURL = "https://www.occasionaldivergences.com/"
 theme = "hyde"
-googleAnalytics = "UA-204356111-1"
 languageCode = "en-us"
 ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown", "_files$", "_cache$"]
 paginate = 10
