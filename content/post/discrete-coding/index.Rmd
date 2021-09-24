@@ -2,18 +2,58 @@
 title: "Coding discrete variables"
 author: "Marc Dotson"
 date: "2021-10-01"
-slug: choice-models
+slug: discrete-coding
 ---
 
-## Centered parameterization
+There are a number of ways to code discrete (i.e., categorical) variables, with different coding strategies better suited for specific use cases. Additionally, there are certain practices that are questionable, such as specifying a brand intercept (i.e., index coding the brand attribute) in a hierarchical multinomial logit model where an intercept isn't identified. Finally, there is a question of using contrasts of marginal posteriors to answer hypotheses and how those contrasts are or are not impacted by coding used.
 
-```{stan hmnl-centered, output.var="hmnl_centered", eval=FALSE}
+Let's start with a simple model and work up to choice model models (i.e., we can use what was provided in the previous post on choice model parameterizations).
+
+## Flat regression
+
+```{r generate-flat-data, eval=FALSE}
 
 ```
 
-```{r generate-data-02, eval=FALSE}
+### Dummy coding
+
+Also known as indicator coding is likely the most common way to code discrete variables.
+
+```{stan regression-flat-dummy, eval=FALSE}
 
 ```
+
+```{r contrasts-flat-dummy, eval=FALSE}
+
+```
+
+### Index coding
+
+Separate indicators in place of an intercept.
+
+```{stan regression-flat-index, eval=FALSE}
+
+```
+
+```{r contrasts-flat-index, eval=FALSE}
+
+```
+
+### Effects coding
+
+```{stan regression-flat-effects, eval=FALSE}
+
+```
+
+```{r contrasts-flat-effects, eval=FALSE}
+
+```
+
+## Hierarchical regression
+
+## Choice model
+
+And the peculiar case of intercepts and brand intercepts...if intercepts aren't identified, it could be the prior alone that is providing a sensible posterior. To test this, let's use a uniform prior.
 
 ## Final thoughts
 
