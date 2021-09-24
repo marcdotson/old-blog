@@ -4,8 +4,7 @@ data {
   int<lower = 1> I;    // Number of covariates.
   matrix[N, I] X;      // Matrix of covariates.
 
-  real alpha;          // Intercept.
-  vector[I] beta;  // Vector of slopes.
+  vector[I] beta;      // Vector of slopes.
   real<lower = 0> tau; // Variance of the regression.
 }
 
@@ -16,6 +15,6 @@ generated quantities {
 
   // Generate data.
   for (n in 1:N) {
-    y[n] = normal_rng(alpha + X[n,] * beta, tau);
+    y[n] = normal_rng(X[n,] * beta, tau);
   }
 }
