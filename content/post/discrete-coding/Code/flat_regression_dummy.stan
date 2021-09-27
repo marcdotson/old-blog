@@ -9,7 +9,7 @@ data {
 // Parameters.
 parameters {
   real alpha;          // Intercept.
-  vector[I - 1] beta;  // Vector of slopes.
+  vector[I] beta;      // Vector of slopes.
   real<lower = 0> tau; // Variance of the regression.
 }
 
