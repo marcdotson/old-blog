@@ -2,7 +2,7 @@ title = "Occasional Divergences"
 baseURL = "https://www.occasionaldivergences.com/"
 theme = "hyde"
 languageCode = "en-us"
-ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown", "_files$", "_cache$"]
+ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown", "\\.Rmarkdown$", "\\.knit\\.md$", "\\.utf8\\.md$", "_cache$"]
 paginate = 10
 enableEmoji = true
 

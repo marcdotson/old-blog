@@ -3,8 +3,10 @@
 .Rhistory
 .RData
 .Ruserdata
-public/
+/public/
+/resources/
 .DS_Store
+Thumbs.db
 
 # RDS Data.
 *.rds
