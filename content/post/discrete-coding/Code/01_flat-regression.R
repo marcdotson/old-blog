@@ -3,8 +3,8 @@
 library(tidyverse)
 library(cmdstanr)
 library(posterior)
+library(bayesplot)
 library(tidybayes)
-# library(bayesplot)
 
 # Set the simulation seed.
 set.seed(42)
@@ -60,7 +60,7 @@ flat_regression_dummy <- cmdstan_model(
   dir = here::here("content", "post", "discrete-coding", "Code", "Compiled")
 )
 
-# Calibrate the model.
+# Fit the model.
 fit_dummy <- flat_regression_dummy$sample(
   data = data,
   chains = 4,
@@ -68,10 +68,96 @@ fit_dummy <- flat_regression_dummy$sample(
   seed = 42
 )
 
-# Extract draws.
+# Check diagnostics.
+fit_dummy$cmdstan_diagnose()
+
+# Recover parameters?
+bayesplot_grid(
+  mcmc_hist(fit_dummy$draws("alpha")) + vline_at(sim_values$beta[1], size = 1.5),
+  mcmc_hist(fit_dummy$draws("beta[1]")) + vline_at(sim_values$beta[2], size = 1.5),
+  mcmc_hist(fit_dummy$draws("beta[2]")) + vline_at(sim_values$beta[3], size = 1.5),
+  mcmc_hist(fit_dummy$draws("beta[3]")) + vline_at(sim_values$beta[4], size = 1.5)
+)
+
+# Extract draws and compare contrasts.
+contrast_values <- tibble(
+  .variable = str_c("contrast", 1:(sim_values$I - 1)),
+  values = c(
+    sim_values$beta[4] - sim_values$beta[1],
+    sim_values$beta[4] - sim_values$beta[2],
+    sim_values$beta[4] - sim_values$beta[3]
+  )
+)
 fit_dummy$draws(variables = c("alpha", "beta"), format = "draws_df") %>%
-  # pivot_longer(alpha:beta[3], values_to = "draw", names_to = "parameter") %>%
-  # gather_draws() %>% # tidybayes?
-  ggplot(aes(x = "beta[1]")) +
-  geom_histogram()
+  mutate_variables(
+    contrast1 = `beta[3]` - alpha,
+    contrast2 = `beta[3]` - `beta[1]`,
+    contrast3 = `beta[3]` - `beta[2]`
+  ) %>%
+  gather_draws(contrast1, contrast2, contrast3) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), contrast_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+
+# # Save output.
+# fit_dummy$save_object(file = here::here("content", "post", "discrete-coding", "Output", "fit_dummy.rds"))
+
+# Index Coding ------------------------------------------------------------
+# Specify data.
+data <- list(
+  N = length(sim_y),   # Number of observations.
+  I = ncol(sim_X),     # Number of covariates.
+  y = sim_y,           # Vector of observations.
+  X = sim_X            # Matrix of covariates.
+)
+
+# Compile the model.
+flat_regression_index <- cmdstan_model(
+  stan_file = here::here("content", "post", "discrete-coding", "Code", "flat_regression_index.stan"),
+  dir = here::here("content", "post", "discrete-coding", "Code", "Compiled")
+)
+
+# Fit the model.
+fit_index <- flat_regression_index$sample(
+  data = data,
+  chains = 4,
+  parallel_chains = 4,
+  seed = 42
+)
+
+# Check diagnostics.
+fit_index$cmdstan_diagnose()
+
+# Recover parameters?
+bayesplot_grid(
+  mcmc_hist(fit_index$draws("beta[1]")) + vline_at(sim_values$beta[1], size = 1.5),
+  mcmc_hist(fit_index$draws("beta[2]")) + vline_at(sim_values$beta[2], size = 1.5),
+  mcmc_hist(fit_index$draws("beta[3]")) + vline_at(sim_values$beta[3], size = 1.5),
+  mcmc_hist(fit_index$draws("beta[4]")) + vline_at(sim_values$beta[4], size = 1.5)
+)
+
+# Extract draws and compare contrasts.
+contrast_values <- tibble(
+  .variable = str_c("contrast", 1:(sim_values$I - 1)),
+  values = c(
+    sim_values$beta[4] - sim_values$beta[1],
+    sim_values$beta[4] - sim_values$beta[2],
+    sim_values$beta[4] - sim_values$beta[3]
+  )
+)
+fit_index$draws(variables = c("beta"), format = "draws_df") %>%
+  mutate_variables(
+    contrast1 = `beta[4]` - `beta[1]`,
+    contrast2 = `beta[4]` - `beta[2]`,
+    contrast3 = `beta[4]` - `beta[3]`
+  ) %>%
+  gather_draws(contrast1, contrast2, contrast3) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), contrast_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+
+# # Save output.
+# fit_index$save_object(file = here::here("content", "post", "discrete-coding", "Output", "fit_index.rds"))
 
