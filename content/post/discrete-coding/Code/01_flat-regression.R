@@ -12,16 +12,23 @@ set.seed(42)
 # Generate Data -----------------------------------------------------------
 # Specify data and parameter values.
 sim_values <- list(
-  N = 50,                # Number of observations.
-  I = 4,                 # Number of covariates.
-  beta = c(1, 4, 3, -2), # Vector of slopes.
-  tau = 1                # Variance of the regression.
+  N = 50,                    # Number of observations.
+  I = 5,                     # Number of covariates.
+  J = c(2, 3),               # Number of levels for each discrete variable.
+  beta = c(1, -4, 6, 3, -2), # Vector of slopes.
+  tau = 1                    # Variance of the regression.
 )
 
 # Matrix of covariates.
 sim_X <- matrix(data = 0, nrow = sim_values$N, ncol = (sim_values$I))
 for (n in 1:sim_values$N) {
-  sim_X[n, sample(seq(1, (sim_values$I)), 1)] <- 1
+  temp_X <- NULL
+  for (j in 1:length(sim_values$J)) {
+    temp_J <- rep(0, sim_values$J[j])
+    temp_J[sample(seq(1, (sim_values$J[j])), 1)] <- 1
+    temp_X <- c(temp_X, temp_J)
+  }
+  sim_X[n,] <- temp_X
 }
 sim_values$X <- sim_X
 
@@ -48,10 +55,10 @@ sim_y <- sim_data$draws(variables = "y", format = "draws_list") %>%
 # Dummy Coding ------------------------------------------------------------
 # Specify data.
 data <- list(
-  N = length(sim_y),   # Number of observations.
-  I = ncol(sim_X) - 1, # Number of covariates.
-  y = sim_y,           # Vector of observations.
-  X = sim_X[,-1]       # Matrix of covariates.
+  N = length(sim_y),    # Number of observations.
+  I = ncol(sim_X) - 2,  # Number of covariates.
+  y = sim_y,            # Vector of observations.
+  X = sim_X[, -c(1, 3)] # Matrix of covariates.
 )
 
 # Compile the model.
@@ -71,34 +78,34 @@ fit_dummy <- flat_regression_dummy$sample(
 # Check diagnostics.
 fit_dummy$cmdstan_diagnose()
 
-# Recover parameters?
-bayesplot_grid(
-  mcmc_hist(fit_dummy$draws("alpha")) + vline_at(sim_values$beta[1], size = 1.5),
-  mcmc_hist(fit_dummy$draws("beta[1]")) + vline_at(sim_values$beta[2], size = 1.5),
-  mcmc_hist(fit_dummy$draws("beta[2]")) + vline_at(sim_values$beta[3], size = 1.5),
-  mcmc_hist(fit_dummy$draws("beta[3]")) + vline_at(sim_values$beta[4], size = 1.5)
-)
-
 # Extract draws and compare contrasts.
 contrast_values <- tibble(
-  .variable = str_c("contrast", 1:(sim_values$I - 1)),
+  .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
   values = c(
-    sim_values$beta[4] - sim_values$beta[1],
-    sim_values$beta[4] - sim_values$beta[2],
-    sim_values$beta[4] - sim_values$beta[3]
+    # First discrete variable.
+    sim_values$beta[2] - sim_values$beta[1],
+    # Second discrete variable.
+    sim_values$beta[4] - sim_values$beta[3],
+    sim_values$beta[5] - sim_values$beta[3]
   )
 )
-fit_dummy$draws(variables = c("alpha", "beta"), format = "draws_df") %>%
+fit_dummy$draws(variables = "beta", format = "draws_df") %>%
   mutate_variables(
-    contrast1 = `beta[3]` - alpha,
-    contrast2 = `beta[3]` - `beta[1]`,
-    contrast3 = `beta[3]` - `beta[2]`
+    contrast1 = `beta[1]`,
+    contrast2 = `beta[2]`,
+    contrast3 = `beta[3]`
   ) %>%
   gather_draws(contrast1, contrast2, contrast3) %>%
   ggplot(aes(y = .variable, x = .value)) +
   stat_histinterval() +
   geom_vline(aes(xintercept = values), contrast_values, color = "red") +
   facet_wrap(~ .variable, scales = "free", ncol = 1)
+
+ggsave(
+  "flat-contrasts-dummy.png",
+  path = here::here("content", "post", "discrete-coding", "Figures"),
+  width = 5, height = 4, units = "in"
+)
 
 # # Save output.
 # fit_dummy$save_object(file = here::here("content", "post", "discrete-coding", "Output", "fit_dummy.rds"))
@@ -129,34 +136,34 @@ fit_index <- flat_regression_index$sample(
 # Check diagnostics.
 fit_index$cmdstan_diagnose()
 
-# Recover parameters?
-bayesplot_grid(
-  mcmc_hist(fit_index$draws("beta[1]")) + vline_at(sim_values$beta[1], size = 1.5),
-  mcmc_hist(fit_index$draws("beta[2]")) + vline_at(sim_values$beta[2], size = 1.5),
-  mcmc_hist(fit_index$draws("beta[3]")) + vline_at(sim_values$beta[3], size = 1.5),
-  mcmc_hist(fit_index$draws("beta[4]")) + vline_at(sim_values$beta[4], size = 1.5)
-)
-
 # Extract draws and compare contrasts.
 contrast_values <- tibble(
-  .variable = str_c("contrast", 1:(sim_values$I - 1)),
+  .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
   values = c(
-    sim_values$beta[4] - sim_values$beta[1],
-    sim_values$beta[4] - sim_values$beta[2],
-    sim_values$beta[4] - sim_values$beta[3]
+    # First discrete variable.
+    sim_values$beta[2] - sim_values$beta[1],
+    # Second discrete variable.
+    sim_values$beta[4] - sim_values$beta[3],
+    sim_values$beta[5] - sim_values$beta[3]
   )
 )
 fit_index$draws(variables = c("beta"), format = "draws_df") %>%
   mutate_variables(
-    contrast1 = `beta[4]` - `beta[1]`,
-    contrast2 = `beta[4]` - `beta[2]`,
-    contrast3 = `beta[4]` - `beta[3]`
+    contrast1 = `beta[2]` - `beta[1]`,
+    contrast2 = `beta[4]` - `beta[3]`,
+    contrast3 = `beta[5]` - `beta[3]`
   ) %>%
   gather_draws(contrast1, contrast2, contrast3) %>%
   ggplot(aes(y = .variable, x = .value)) +
   stat_histinterval() +
   geom_vline(aes(xintercept = values), contrast_values, color = "red") +
   facet_wrap(~ .variable, scales = "free", ncol = 1)
+
+ggsave(
+  "flat-contrasts-index.png",
+  path = here::here("content", "post", "discrete-coding", "Figures"),
+  width = 5, height = 4, units = "in"
+)
 
 # # Save output.
 # fit_index$save_object(file = here::here("content", "post", "discrete-coding", "Output", "fit_index.rds"))
