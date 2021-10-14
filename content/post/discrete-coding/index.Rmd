@@ -154,7 +154,7 @@ fit_dummy <- flat_regression_dummy$sample(
 )
 ```
 
-We can't recover the parameters values we used when simulating the data. Dummy coding is equivalent to specifying each included level as a contrast with the reference level. We can see that by computing contrasts and comparing it to the contrasted true parameter values.
+We can't recover the parameters values we used when simulating the data. Dummy coding is equivalent to specifying each included level as a contrast with the reference level. We can compare the dummy-coded marginal posteriors to the contrasted true parameter values.
 
 ```{r flat-contrasts-dummy, eval=FALSE}
 # Extract draws and compare contrasts.
@@ -185,7 +185,7 @@ fit_dummy$draws(variables = "beta", format = "draws_df") %>%
 
 ### Index coding
 
-For index coding we *don't* include an intercept and *don't* include any reference levels. By not including reference levels, the intercept is implied. Here's a flat regression using index coding.
+For index coding we *don't* include an intercept and *don't* include any reference levels. By not including reference levels, the intercept is implied. But when we have more than one discrete variable we also have more than one implied intercept. We end up relying more heavily on the prior to identify each of the parameters, however the contrasts are always identified even if their constitutent parameter estimates are not. Here's a flat regression using index coding.
 
 ```{stan flat-regression-index, output.var="flat_regression_index", eval=FALSE}
 // Index value and observations.
@@ -243,7 +243,7 @@ fit_index <- flat_regression_index$sample(
 )
 ```
 
-With index coding, the parameter estimates don't produce an implied contrast, so we'll have to contrast them directly. Here we re-produce the same plot as before and compare it to the contrasted true parameter values.
+With index coding, the parameter estimates don't produce an implied contrast, so we'll have to compute the contrasts from the marginal posteriors directly. Here we re-produce the same plot as before and compare it to the contrasted true parameter values.
 
 ```{r flat-contrasts-index, eval=FALSE}
 # Extract draws and compare contrasts.
@@ -274,6 +274,8 @@ fit_index$draws(variables = c("beta"), format = "draws_df") %>%
 
 ### Effects coding
 
+Also known as sum-to-zero coding, effects coding generalizes the idea of dummy coding to more flexibly identify any contrast among the levels of a discrete variable.
+
 ```{stan flat-regression-effects, output.var="flat_regression_effects", eval=FALSE}
 
 ```
@@ -288,9 +290,11 @@ fit_index$draws(variables = c("beta"), format = "draws_df") %>%
 
 ## Hierarchical regression
 
-## Choice model
+## Flat multinomial logit
 
 And the peculiar case of intercepts and brand intercepts...if intercepts aren't identified, it could be the prior alone that is providing a sensible posterior. To test this, let's use a uniform prior.
+
+## Hierarchical multinomial logit
 
 ## Final thoughts
 

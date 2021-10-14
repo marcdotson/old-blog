@@ -78,6 +78,38 @@ fit_dummy <- flat_regression_dummy$sample(
 # Check diagnostics.
 fit_dummy$cmdstan_diagnose()
 
+# Check on trace plots for index coding with two discrete variables.
+mcmc_trace(fit_dummy$draws(variables = c("alpha", "beta")))
+
+# Try fitting with $optimize().
+test_dummy <- flat_regression_dummy$optimize(
+  data = data,
+  seed = 42
+)
+test_dummy$summary()
+
+# Check on parameter recovery for index coding with two discrete variables.
+parameter_values <- tibble(
+  .variable = str_c("parameter", 1:(sim_values$I - length(sim_values$J))),
+  values = c(
+    # First discrete variable.
+    sim_values$beta[2],
+    # Second discrete variable.
+    sim_values$beta[4], sim_values$beta[5]
+  )
+)
+fit_dummy$draws(variables = "beta", format = "draws_df") %>%
+  mutate_variables(
+    parameter1 = `beta[1]`,
+    parameter2 = `beta[2]`,
+    parameter3 = `beta[3]`
+  ) %>%
+  gather_draws(parameter1, parameter2, parameter3) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), parameter_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+
 # Extract draws and compare contrasts.
 contrast_values <- tibble(
   .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
@@ -136,6 +168,40 @@ fit_index <- flat_regression_index$sample(
 # Check diagnostics.
 fit_index$cmdstan_diagnose()
 
+# Check on trace plots for index coding with two discrete variables.
+mcmc_trace(fit_index$draws(variables = "beta"))
+
+# Try fitting with $optimize().
+test_index <- flat_regression_index$optimize(
+  data = data,
+  seed = 42
+)
+test_index$summary()
+
+# Check on parameter recovery for index coding with two discrete variables.
+parameter_values <- tibble(
+  .variable = str_c("parameter", 1:sim_values$I),
+  values = c(
+    # First discrete variable.
+    sim_values$beta[1], sim_values$beta[2],
+    # Second discrete variable.
+    sim_values$beta[3], sim_values$beta[4], sim_values$beta[5]
+  )
+)
+fit_index$draws(variables = "beta", format = "draws_df") %>%
+  mutate_variables(
+    parameter1 = `beta[1]`,
+    parameter2 = `beta[2]`,
+    parameter3 = `beta[3]`,
+    parameter4 = `beta[4]`,
+    parameter5 = `beta[5]`
+  ) %>%
+  gather_draws(parameter1, parameter2, parameter3, parameter4, parameter5) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), parameter_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+
 # Extract draws and compare contrasts.
 contrast_values <- tibble(
   .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
@@ -168,3 +234,94 @@ ggsave(
 # # Save output.
 # fit_index$save_object(file = here::here("content", "post", "discrete-coding", "Output", "fit_index.rds"))
 
+# Effects Coding ----------------------------------------------------------
+# Specify data.
+data <- list(
+  N = length(sim_y),   # Number of observations.
+  I = ncol(sim_X),     # Number of covariates.
+  y = sim_y,           # Vector of observations.
+  X = sim_X            # Matrix of covariates.
+)
+
+# Compile the model.
+flat_regression_index <- cmdstan_model(
+  stan_file = here::here("content", "post", "discrete-coding", "Code", "flat_regression_index.stan"),
+  dir = here::here("content", "post", "discrete-coding", "Code", "Compiled")
+)
+
+# Fit the model.
+fit_index <- flat_regression_index$sample(
+  data = data,
+  chains = 4,
+  parallel_chains = 4,
+  seed = 42
+)
+
+# Check diagnostics.
+fit_index$cmdstan_diagnose()
+
+# Check on trace plots for index coding with two discrete variables.
+mcmc_trace(fit_index$draws(variables = "beta"))
+
+# Try fitting with $optimize().
+test_index <- flat_regression_index$optimize(
+  data = data,
+  seed = 42
+)
+test_index$summary()
+
+# Check on parameter recovery for index coding with two discrete variables.
+parameter_values <- tibble(
+  .variable = str_c("parameter", 1:sim_values$I),
+  values = c(
+    # First discrete variable.
+    sim_values$beta[1], sim_values$beta[2],
+    # Second discrete variable.
+    sim_values$beta[3], sim_values$beta[4], sim_values$beta[5]
+  )
+)
+fit_index$draws(variables = "beta", format = "draws_df") %>%
+  mutate_variables(
+    parameter1 = `beta[1]`,
+    parameter2 = `beta[2]`,
+    parameter3 = `beta[3]`,
+    parameter4 = `beta[4]`,
+    parameter5 = `beta[5]`
+  ) %>%
+  gather_draws(parameter1, parameter2, parameter3, parameter4, parameter5) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), parameter_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+
+# Extract draws and compare contrasts.
+contrast_values <- tibble(
+  .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
+  values = c(
+    # First discrete variable.
+    sim_values$beta[2] - sim_values$beta[1],
+    # Second discrete variable.
+    sim_values$beta[4] - sim_values$beta[3],
+    sim_values$beta[5] - sim_values$beta[3]
+  )
+)
+fit_index$draws(variables = c("beta"), format = "draws_df") %>%
+  mutate_variables(
+    contrast1 = `beta[2]` - `beta[1]`,
+    contrast2 = `beta[4]` - `beta[3]`,
+    contrast3 = `beta[5]` - `beta[3]`
+  ) %>%
+  gather_draws(contrast1, contrast2, contrast3) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), contrast_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+
+ggsave(
+  "flat-contrasts-index.png",
+  path = here::here("content", "post", "discrete-coding", "Figures"),
+  width = 5, height = 4, units = "in"
+)
+
+# # Save output.
+# fit_index$save_object(file = here::here("content", "post", "discrete-coding", "Output", "fit_index.rds"))
