@@ -154,9 +154,9 @@ fit_dummy <- flat_regression_dummy$sample(
 )
 ```
 
-We can't recover the parameters values we used when simulating the data. Dummy coding is equivalent to specifying each included level as a contrast with the reference level. We can compare the dummy-coded marginal posteriors to the contrasted true parameter values.
+We can't recover the parameters values we used when simulating the data. Dummy coding is equivalent to specifying each included level as a contrast with the reference level. We can compare the dummy-coded marginal posteriors to the contrasted true parameter values in a number of ways.
 
-```{r flat-contrasts-dummy, eval=FALSE}
+```{r flat-contrasts-dummy-01, eval=FALSE}
 # Extract draws and compare contrasts.
 contrast_values <- tibble(
   .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
@@ -181,7 +181,50 @@ fit_dummy$draws(variables = "beta", format = "draws_df") %>%
   facet_wrap(~ .variable, scales = "free", ncol = 1)
 ```
 
-![](Figures/flat-contrasts-dummy.png){width=750px}
+![](Figures/flat-contrasts-dummy-01.png){width=750px}
+
+```{r flat-contrasts-dummy-02, eval=FALSE}
+contrast_values <- tibble(
+  .variable = str_c("contrast", 1:2),
+  values = c(
+    # Second discrete variable.
+    sim_values$beta[4] - sim_values$beta[5],
+    sim_values$beta[5] - sim_values$beta[4]
+  )
+)
+fit_dummy$draws(variables = "beta", format = "draws_df") %>%
+  mutate_variables(
+    contrast1 = `beta[2]` - `beta[3]`,
+    contrast2 = `beta[3]` - `beta[2]`
+  ) %>%
+  gather_draws(contrast1, contrast2) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), contrast_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
+```
+
+![](Figures/flat-contrasts-dummy-02.png){width=750px}
+
+### Effects coding
+
+Also known as sum-to-zero coding, effects coding comes in a variety of flavor and generalizes the idea of dummy coding to more flexibly identify any contrast among the levels of a discrete variable.
+
+```{stan flat-regression-effects, output.var="flat_regression_effects", eval=FALSE}
+
+```
+
+```{r call-flat-regression-effects, eval=FALSE}
+
+```
+
+```{r flat-contrasts-effects-01, eval=FALSE}
+
+```
+
+```{r flat-contrasts-effects-02, eval=FALSE}
+
+```
 
 ### Index coding
 
@@ -245,7 +288,7 @@ fit_index <- flat_regression_index$sample(
 
 With index coding, the parameter estimates don't produce an implied contrast, so we'll have to compute the contrasts from the marginal posteriors directly. Here we re-produce the same plot as before and compare it to the contrasted true parameter values.
 
-```{r flat-contrasts-index, eval=FALSE}
+```{r flat-contrasts-index-01, eval=FALSE}
 # Extract draws and compare contrasts.
 contrast_values <- tibble(
   .variable = str_c("contrast", 1:(sim_values$I - length(sim_values$J))),
@@ -270,31 +313,43 @@ fit_index$draws(variables = c("beta"), format = "draws_df") %>%
   facet_wrap(~ .variable, scales = "free", ncol = 1)
 ```
 
-![](Figures/flat-contrasts-dummy.png){width=750px}
+![](Figures/flat-contrasts-index-01.png){width=750px}
 
-### Effects coding
-
-Also known as sum-to-zero coding, effects coding generalizes the idea of dummy coding to more flexibly identify any contrast among the levels of a discrete variable.
-
-```{stan flat-regression-effects, output.var="flat_regression_effects", eval=FALSE}
-
+```{r flat-contrasts-index-01, eval=FALSE}
+contrast_values <- tibble(
+  .variable = str_c("contrast", 1:2),
+  values = c(
+    # Second discrete variable.
+    sim_values$beta[4] - sim_values$beta[5],
+    sim_values$beta[5] - sim_values$beta[4]
+  )
+)
+fit_index$draws(variables = "beta", format = "draws_df") %>%
+  mutate_variables(
+    contrast1 = `beta[4]` - `beta[5]`,
+    contrast2 = `beta[5]` - `beta[4]`
+  ) %>%
+  gather_draws(contrast1, contrast2) %>%
+  ggplot(aes(y = .variable, x = .value)) +
+  stat_histinterval() +
+  geom_vline(aes(xintercept = values), contrast_values, color = "red") +
+  facet_wrap(~ .variable, scales = "free", ncol = 1)
 ```
 
-```{r call-flat-regression-effects, eval=FALSE}
-
-```
-
-```{r flat-contrasts-effects, eval=FALSE}
-
-```
-
-## Hierarchical regression
+![](Figures/flat-contrasts-index-02.png){width=750px}
 
 ## Flat multinomial logit
 
 And the peculiar case of intercepts and brand intercepts...if intercepts aren't identified, it could be the prior alone that is providing a sensible posterior. To test this, let's use a uniform prior.
 
-## Hierarchical multinomial logit
+It's not just the prior. When we consider choice models, it's the outside good that is at play. The outside good provides a reference to the alternatives, a kind of intercept that is identified in the model even when a traditional intercept is not. We have two things to test here:
+
+- Outside good coded as zero with brand intercepts.
+- Outside good coded as a binary attribute (it's own intecept) with dummy coded brands.
+
+These should be equivalent.
+
+## Hierarchical regression and multinomial logit
 
 ## Final thoughts
 
