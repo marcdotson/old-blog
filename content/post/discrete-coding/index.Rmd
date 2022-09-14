@@ -208,11 +208,43 @@ fit_dummy$draws(variables = "beta", format = "draws_df") %>%
 
 ### Effects coding
 
-Also known as sum-to-zero coding, effects coding comes in a variety of flavor and generalizes the idea of dummy coding to more flexibly identify any contrast among the levels of a discrete variable.
+Also known as sum-to-zero coding, effects coding comes in a variety of forms while generalizing the idea of dummy coding to more flexibly identify any contrast of interest among the levels of a discrete variable. Here we'll use simple contrast coding where the reference level is set to -1 and the relevant level is set to 1. The model is the same as with dummy coding.
+
+...and if that's the case, what's the point of effects coding? It may matter for making it easier to specify priors, especially in a hierarchical setting.
 
 ```{stan flat-regression-effects, output.var="flat_regression_effects", eval=FALSE}
+// Index value and observations.
+data {
+  int<lower = 1> N;    // Number of observations.
+  int<lower = 1> I;    // Number of covariates.
+  vector[N] y;         // Vector of observations.
+  matrix[N, I] X;      // Matrix of covariates.
+}
 
+// Parameters.
+parameters {
+  real alpha;          // Intercept.
+  vector[I] beta;      // Vector of slopes.
+  real<lower = 0> tau; // Variance of the regression.
+}
+
+// Regression.
+model {
+  // Priors.
+  alpha ~ normal(0, 5);
+  for (i in 1:I) {
+    beta[i] ~ normal(0, 5);
+  }
+  tau ~ normal(0, 5);
+
+  // Likelihood.
+  for (n in 1:N) {
+    y[n] ~ normal(alpha + X[n,] * beta, tau);
+  }
+}
 ```
+
+Let's call `flat_regression_effects` from R where the final level in each discrete variable is the reference level (i.e., coded as -1) to compare with the first level baseline inherent in dummy coding.
 
 ```{r call-flat-regression-effects, eval=FALSE}
 
@@ -347,7 +379,7 @@ It's not just the prior. When we consider choice models, it's the outside good t
 - Outside good coded as zero with brand intercepts.
 - Outside good coded as a binary attribute (it's own intecept) with dummy coded brands.
 
-These should be equivalent.
+These should be equivalent. But what if it's a forced choice and there is no outside option?
 
 ## Hierarchical regression and multinomial logit
 
